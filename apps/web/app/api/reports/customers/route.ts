@@ -43,12 +43,13 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate summary
+    type CustomerType = typeof customers[number];
     const totalCustomers = customers.length;
     const newCustomers = customers.filter(
-      (c) => c.createdAt >= startDate
+      (c: CustomerType) => c.createdAt >= startDate
     ).length;
     const returningCustomers = customers.filter(
-      (c) => c._count.orders > 1
+      (c: CustomerType) => c._count.orders > 1
     ).length;
 
     // Get customer spending data from orders
@@ -68,19 +69,20 @@ export async function GET(request: NextRequest) {
     });
 
     // Map spending to customers
+    type CustomerOrderType = typeof customerOrders[number];
     const spendingMap = new Map(
-      customerOrders.map((co) => [
+      customerOrders.map((co: CustomerOrderType) => [
         co.customerId,
         { total: co._sum.totalAmount || 0, visits: co._count.id },
       ])
     );
 
     const totalSpending = customerOrders.reduce(
-      (sum, co) => sum + (co._sum.totalAmount || 0),
+      (sum: number, co: CustomerOrderType) => sum + (co._sum.totalAmount || 0),
       0
     );
     const totalVisits = customerOrders.reduce(
-      (sum, co) => sum + co._count.id,
+      (sum: number, co: CustomerOrderType) => sum + co._count.id,
       0
     );
 
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     // Top spenders
     const topSpenders = customers
-      .map((c) => {
+      .map((c: CustomerType) => {
         const spending = spendingMap.get(c.id) || { total: 0, visits: 0 };
         return {
           id: c.id,
@@ -100,13 +102,13 @@ export async function GET(request: NextRequest) {
           tier: c.tier,
         };
       })
-      .filter((c) => c.totalSpent > 0)
-      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .filter((c: { totalSpent: number }) => c.totalSpent > 0)
+      .sort((a: { totalSpent: number }, b: { totalSpent: number }) => b.totalSpent - a.totalSpent)
       .slice(0, 10);
 
     // Tier distribution
     const tierCounts: Record<string, number> = {};
-    customers.forEach((c) => {
+    customers.forEach((c: CustomerType) => {
       tierCounts[c.tier] = (tierCounts[c.tier] || 0) + 1;
     });
 
@@ -133,11 +135,11 @@ export async function GET(request: NextRequest) {
       });
 
       const newInMonth = customers.filter(
-        (c) => c.createdAt >= monthDate && c.createdAt < nextMonth
+        (c: CustomerType) => c.createdAt >= monthDate && c.createdAt < nextMonth
       ).length;
 
       const totalByMonth = customers.filter(
-        (c) => c.createdAt < nextMonth
+        (c: CustomerType) => c.createdAt < nextMonth
       ).length;
 
       monthlyGrowth.push({
