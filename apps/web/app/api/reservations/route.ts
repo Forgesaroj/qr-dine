@@ -55,13 +55,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Group by status for easy display
+    type ReservationType = typeof reservations[number];
     const grouped = {
-      pending: reservations.filter((r) => r.status === "PENDING"),
-      confirmed: reservations.filter((r) => r.status === "CONFIRMED"),
-      seated: reservations.filter((r) => r.status === "SEATED"),
-      completed: reservations.filter((r) => r.status === "COMPLETED"),
-      cancelled: reservations.filter((r) => r.status === "CANCELLED"),
-      noShow: reservations.filter((r) => r.status === "NO_SHOW"),
+      pending: reservations.filter((r: ReservationType) => r.status === "PENDING"),
+      confirmed: reservations.filter((r: ReservationType) => r.status === "CONFIRMED"),
+      seated: reservations.filter((r: ReservationType) => r.status === "SEATED"),
+      completed: reservations.filter((r: ReservationType) => r.status === "COMPLETED"),
+      cancelled: reservations.filter((r: ReservationType) => r.status === "CANCELLED"),
+      noShow: reservations.filter((r: ReservationType) => r.status === "NO_SHOW"),
     };
 
     return NextResponse.json({
