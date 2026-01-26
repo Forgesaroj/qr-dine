@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const type = searchParams.get("type");
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = { restaurantId: session.restaurantId };
+    if (status) whereClause.status = status;
+    if (type) whereClause.type = type;
+
     const promotions = await prisma.promotion.findMany({
-      where: {
-        restaurantId: session.restaurantId,
-        ...(status && { status }),
-        ...(type && { type }),
-      },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 

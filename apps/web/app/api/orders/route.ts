@@ -14,23 +14,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "active";
 
-    // Build status filter
-    let statusFilter: { in: string[] } | string | undefined;
-
-    if (status === "active") {
-      statusFilter = { in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"] };
-    } else if (status === "completed") {
-      statusFilter = "COMPLETED";
-    } else if (status === "cancelled") {
-      statusFilter = "CANCELLED";
-    }
-    // "all" has no status filter (statusFilter remains undefined)
-
+    // Query with appropriate filter
     const orders = await prisma.order.findMany({
-      where: {
-        restaurantId: session.restaurantId,
-        ...(statusFilter && { status: statusFilter }),
-      },
+      where: status === "active"
+        ? {
+            restaurantId: session.restaurantId,
+            status: { in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"] },
+          }
+        : status === "completed"
+        ? { restaurantId: session.restaurantId, status: "COMPLETED" }
+        : status === "cancelled"
+        ? { restaurantId: session.restaurantId, status: "CANCELLED" }
+        : { restaurantId: session.restaurantId },
       include: {
         table: {
           select: {
