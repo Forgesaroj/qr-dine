@@ -135,14 +135,15 @@ export async function PATCH(
     });
 
     // Determine order status based on item statuses
-    const itemStatuses = allItems.map((i) => i.status);
+    type ItemStatus = typeof allItems[number];
+    const itemStatuses = allItems.map((i: ItemStatus) => i.status);
     let newOrderStatus: string | null = null;
 
-    if (itemStatuses.every((s) => s === "SERVED" || s === "CANCELLED")) {
+    if (itemStatuses.every((s: string) => s === "SERVED" || s === "CANCELLED")) {
       newOrderStatus = "SERVED";
-    } else if (itemStatuses.some((s) => s === "READY")) {
+    } else if (itemStatuses.some((s: string) => s === "READY")) {
       newOrderStatus = "READY";
-    } else if (itemStatuses.some((s) => s === "PREPARING")) {
+    } else if (itemStatuses.some((s: string) => s === "PREPARING")) {
       newOrderStatus = "PREPARING";
     }
 
