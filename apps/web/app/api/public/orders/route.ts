@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total
+    type MenuItemType = typeof menuItems[number];
     const itemsWithPrices = items.map((item: { menuItemId: string; quantity: number; notes?: string }) => {
-      const menuItem = menuItems.find((mi) => mi.id === item.menuItemId);
+      const menuItem = menuItems.find((mi: MenuItemType) => mi.id === item.menuItemId);
       return {
         menuItemId: item.menuItemId,
         menuItemName: menuItem!.name,
