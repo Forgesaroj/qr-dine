@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     // Top spenders
     const topSpenders = customers
       .map((c: CustomerType) => {
-        const spending = spendingMap.get(c.id) || { total: 0, visits: 0 };
+        const spending: { total: number; visits: number } = spendingMap.get(c.id) || { total: 0, visits: 0 };
         return {
           id: c.id,
           name: c.name || "Guest",
