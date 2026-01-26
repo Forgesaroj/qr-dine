@@ -170,7 +170,8 @@ export async function POST(req: NextRequest) {
         where: { id: { in: itemIds } },
         select: { categoryId: true },
       });
-      const hasEligibleCategory = orderItems.some((item) =>
+      type OrderItemType = typeof orderItems[number];
+      const hasEligibleCategory = orderItems.some((item: OrderItemType) =>
         promoCategoryIds.includes(item.categoryId)
       );
       if (!hasEligibleCategory) {
