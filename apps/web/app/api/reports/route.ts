@@ -73,16 +73,17 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate summary stats
+    type OrderType = OrderType;
     const totalOrders = orders.length;
     const completedOrders = orders.filter(
-      (o) => o.status === "SERVED" || o.status === "COMPLETED"
+      (o: OrderType) => o.status === "SERVED" || o.status === "COMPLETED"
     ).length;
     const cancelledOrders = orders.filter(
-      (o) => o.status === "CANCELLED"
+      (o: OrderType) => o.status === "CANCELLED"
     ).length;
     const totalRevenue = orders
-      .filter((o) => o.status !== "CANCELLED")
-      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      .filter((o: OrderType) => o.status !== "CANCELLED")
+      .reduce((sum: number, o: OrderType) => sum + (o.totalAmount || 0), 0);
     const averageOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
     // Top selling items
@@ -91,9 +92,10 @@ export async function GET(request: NextRequest) {
       { name: string; quantity: number; revenue: number; category: string }
     > = {};
 
-    orders.forEach((order) => {
+    type OrderItemType = OrderType["items"][number];
+    orders.forEach((order: OrderType) => {
       if (order.status !== "CANCELLED") {
-        order.items.forEach((item) => {
+        order.items.forEach((item: OrderItemType) => {
           const key = item.menuItemId;
           if (!itemSales[key]) {
             itemSales[key] = {
@@ -109,17 +111,18 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    type ItemSalesData = { name: string; quantity: number; revenue: number; category: string };
     const topItems = Object.entries(itemSales)
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.quantity - a.quantity)
+      .map(([id, data]: [string, ItemSalesData]) => ({ id, ...data }))
+      .sort((a: { quantity: number }, b: { quantity: number }) => b.quantity - a.quantity)
       .slice(0, 10);
 
     // Category breakdown
     const categorySales: Record<string, { name: string; revenue: number; orders: number }> = {};
 
-    orders.forEach((order) => {
+    orders.forEach((order: OrderType) => {
       if (order.status !== "CANCELLED") {
-        order.items.forEach((item) => {
+        order.items.forEach((item: OrderItemType) => {
           const categoryName = item.menuItem?.category?.name || "Uncategorized";
           if (!categorySales[categoryName]) {
             categorySales[categoryName] = { name: categoryName, revenue: 0, orders: 0 };
@@ -130,34 +133,35 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    type CategorySalesData = { name: string; revenue: number; orders: number };
     const categoryBreakdown = Object.values(categorySales).sort(
-      (a, b) => b.revenue - a.revenue
+      (a: CategorySalesData, b: CategorySalesData) => b.revenue - a.revenue
     );
 
     // Hourly breakdown (for today)
     const hourlyData: { hour: number; orders: number; revenue: number }[] = [];
     if (period === "today") {
       for (let hour = 0; hour < 24; hour++) {
-        const hourOrders = orders.filter((o: typeof orders[number]) => {
+        const hourOrders = orders.filter((o: OrderType) => {
           const orderHour = new Date(o.createdAt).getHours();
           return orderHour === hour && o.status !== "CANCELLED";
         });
         hourlyData.push({
           hour,
           orders: hourOrders.length,
-          revenue: hourOrders.reduce((sum: number, o: typeof orders[number]) => sum + (o.totalAmount || 0), 0),
+          revenue: hourOrders.reduce((sum: number, o: OrderType) => sum + (o.totalAmount || 0), 0),
         });
       }
     }
 
     // Order status breakdown
     const statusBreakdown = {
-      pending: orders.filter((o: typeof orders[number]) => o.status === "PENDING").length,
-      preparing: orders.filter((o: typeof orders[number]) => o.status === "PREPARING").length,
-      ready: orders.filter((o: typeof orders[number]) => o.status === "READY").length,
-      served: orders.filter((o: typeof orders[number]) => o.status === "SERVED").length,
-      completed: orders.filter((o: typeof orders[number]) => o.status === "COMPLETED").length,
-      cancelled: orders.filter((o: typeof orders[number]) => o.status === "CANCELLED").length,
+      pending: orders.filter((o: OrderType) => o.status === "PENDING").length,
+      preparing: orders.filter((o: OrderType) => o.status === "PREPARING").length,
+      ready: orders.filter((o: OrderType) => o.status === "READY").length,
+      served: orders.filter((o: OrderType) => o.status === "SERVED").length,
+      completed: orders.filter((o: OrderType) => o.status === "COMPLETED").length,
+      cancelled: orders.filter((o: OrderType) => o.status === "CANCELLED").length,
     };
 
     return NextResponse.json({
