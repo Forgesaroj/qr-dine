@@ -146,13 +146,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Build order items
-    const orderItems: Prisma.OrderItemUncheckedCreateWithoutOrderInput[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orderItems: any[] = [];
 
     let subtotal = 0;
     let packagingTotal = 0;
 
+    type MenuItemType = typeof menuItems[number];
     for (const item of items as QuickOrderItem[]) {
-      const menuItem = menuItems.find((m) => m.id === item.menuItemId);
+      const menuItem = menuItems.find((m: MenuItemType) => m.id === item.menuItemId);
       if (!menuItem) continue;
 
       let unitPrice = menuItem.basePrice;
