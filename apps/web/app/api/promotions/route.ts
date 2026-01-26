@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { PromotionStatus, PromotionType } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,8 +10,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") as PromotionStatus | null;
-    const type = searchParams.get("type") as PromotionType | null;
+    const status = searchParams.get("status");
+    const type = searchParams.get("type");
 
     const promotions = await prisma.promotion.findMany({
       where: {
