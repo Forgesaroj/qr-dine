@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Get full menu item details
-    const menuItemIds = popularItems.map((p) => p.menuItemId);
+    type PopularItemType = typeof popularItems[number];
+    const menuItemIds = popularItems.map((p: PopularItemType) => p.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
       where: {
         id: { in: menuItemIds },
@@ -66,8 +67,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Combine with order counts and transform variantGroups to variants
-    const favorites = menuItems.map((item) => {
-      const stats = popularItems.find((p) => p.menuItemId === item.id);
+    type MenuItemType = typeof menuItems[number];
+    const favorites = menuItems.map((item: MenuItemType) => {
+      const stats = popularItems.find((p: PopularItemType) => p.menuItemId === item.id);
 
       // Transform variantGroups to variants array
       let variants: Array<{ id: string; name: string; price: number }> = [];
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
         orderCount: stats?._count.menuItemId || 0,
         totalQuantity: stats?._sum.quantity || 0,
       };
-    }).sort((a, b) => b.orderCount - a.orderCount);
+    }).sort((a: { orderCount: number }, b: { orderCount: number }) => b.orderCount - a.orderCount);
 
     return NextResponse.json({ favorites });
   } catch (error) {
