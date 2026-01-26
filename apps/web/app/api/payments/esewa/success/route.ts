@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { esewa } from "@/lib/payment-gateways";
 import { logActivity } from "@/lib/activity-log";
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     const paidAmount = result.data?.amount as number;
 
     // Record the payment in database
-    const payment = await prisma.$transaction(async (tx) => {
+    const payment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create payment record
       const newPayment = await tx.payment.create({
         data: {
