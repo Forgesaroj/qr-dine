@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { Prisma, OrderStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 // GET all orders for the restaurant
 export async function GET(request: NextRequest) {
@@ -20,19 +20,13 @@ export async function GET(request: NextRequest) {
     if (status === "active") {
       statusFilter = {
         status: {
-          in: [
-            OrderStatus.PENDING,
-            OrderStatus.CONFIRMED,
-            OrderStatus.PREPARING,
-            OrderStatus.READY,
-            OrderStatus.SERVED,
-          ],
+          in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"],
         },
       };
     } else if (status === "completed") {
-      statusFilter = { status: OrderStatus.COMPLETED };
+      statusFilter = { status: "COMPLETED" };
     } else if (status === "cancelled") {
-      statusFilter = { status: OrderStatus.CANCELLED };
+      statusFilter = { status: "CANCELLED" };
     }
     // "all" has no status filter
 
