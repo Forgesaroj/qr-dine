@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate summary stats
-    type OrderType = OrderType;
+    type OrderType = typeof orders[number];
     const totalOrders = orders.length;
     const completedOrders = orders.filter(
       (o: OrderType) => o.status === "SERVED" || o.status === "COMPLETED"
