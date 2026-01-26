@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
 
     // Map spending to customers
     type CustomerOrderType = typeof customerOrders[number];
-    const spendingMap = new Map(
+    type SpendingData = { total: number; visits: number };
+    const spendingMap = new Map<string | null, SpendingData>(
       customerOrders.map((co: CustomerOrderType) => [
         co.customerId,
         { total: co._sum.totalAmount || 0, visits: co._count.id },
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
     // Top spenders
     const topSpenders = customers
       .map((c: CustomerType) => {
-        const spending: { total: number; visits: number } = spendingMap.get(c.id) || { total: 0, visits: 0 };
+        const spending = spendingMap.get(c.id) ?? { total: 0, visits: 0 };
         return {
           id: c.id,
           name: c.name || "Guest",
