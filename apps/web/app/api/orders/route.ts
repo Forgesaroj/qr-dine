@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { Prisma } from "@prisma/client";
 
 // GET all orders for the restaurant
 export async function GET(request: NextRequest) {
@@ -15,26 +14,28 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "active";
 
-    let statusFilter: Prisma.OrderWhereInput = {};
+    // Build where clause based on status filter
+    const baseWhere = { restaurantId: session.restaurantId };
+    let whereClause;
 
     if (status === "active") {
-      statusFilter = {
+      whereClause = {
+        ...baseWhere,
         status: {
-          in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"],
+          in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"] as const,
         },
       };
     } else if (status === "completed") {
-      statusFilter = { status: "COMPLETED" };
+      whereClause = { ...baseWhere, status: "COMPLETED" as const };
     } else if (status === "cancelled") {
-      statusFilter = { status: "CANCELLED" };
+      whereClause = { ...baseWhere, status: "CANCELLED" as const };
+    } else {
+      // "all" has no status filter
+      whereClause = baseWhere;
     }
-    // "all" has no status filter
 
     const orders = await prisma.order.findMany({
-      where: {
-        restaurantId: session.restaurantId,
-        ...statusFilter,
-      },
+      where: whereClause,
       include: {
         table: {
           select: {
