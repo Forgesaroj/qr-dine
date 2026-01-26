@@ -1,0 +1,19 @@
+{
+  "name": "QR Dine - Restaurant Management",
+  "short_name": "QR Dine",
+  "description": "Restaurant management system with QR ordering",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["food", "business", "productivity"]
+}
