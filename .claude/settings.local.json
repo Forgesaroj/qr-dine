@@ -70,7 +70,11 @@
       "Bash(vercel whoami:*)",
       "Bash(vercel login:*)",
       "Bash(pnpm turbo build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx vercel:*)",
+      "Bash(tee:*)"
     ]
   }
 }
