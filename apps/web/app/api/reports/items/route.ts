@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
       revenue: number;
     }> = {};
 
-    orderItems.forEach((item) => {
+    type OrderItemType = typeof orderItems[number];
+    orderItems.forEach((item: OrderItemType) => {
       const key = item.menuItemId;
       if (!itemMap[key]) {
         itemMap[key] = {
@@ -72,11 +73,12 @@ export async function GET(request: NextRequest) {
       itemMap[key].revenue += item.totalPrice;
     });
 
+    type ItemData = { id: string; name: string; category: string; quantity: number; revenue: number };
     const allItems = Object.values(itemMap);
-    const sortedByQuantity = [...allItems].sort((a, b) => b.quantity - a.quantity);
+    const sortedByQuantity = [...allItems].sort((a: ItemData, b: ItemData) => b.quantity - a.quantity);
 
     // Top sellers (top 10)
-    const topSellers = sortedByQuantity.slice(0, 10).map((item) => ({
+    const topSellers = sortedByQuantity.slice(0, 10).map((item: ItemData) => ({
       ...item,
       averagePrice: item.quantity > 0 ? item.revenue / item.quantity : 0,
       trend: 0, // Would need historical data for trend
@@ -84,10 +86,10 @@ export async function GET(request: NextRequest) {
 
     // Worst sellers (bottom 10, with at least 1 sale)
     const worstSellers = sortedByQuantity
-      .filter((item) => item.quantity > 0)
+      .filter((item: ItemData) => item.quantity > 0)
       .slice(-10)
       .reverse()
-      .map((item) => ({
+      .map((item: ItemData) => ({
         ...item,
         averagePrice: item.quantity > 0 ? item.revenue / item.quantity : 0,
         trend: 0,
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
       revenue: number;
     }> = {};
 
-    allItems.forEach((item) => {
+    allItems.forEach((item: ItemData) => {
       if (!categoryMap[item.category]) {
         categoryMap[item.category] = {
           category: item.category,
@@ -116,19 +118,20 @@ export async function GET(request: NextRequest) {
       cat.revenue += item.revenue;
     });
 
+    type CategoryData = { category: string; items: Set<string>; quantity: number; revenue: number };
     const byCategory = Object.values(categoryMap)
-      .map((cat) => ({
+      .map((cat: CategoryData) => ({
         category: cat.category,
         items: cat.items.size,
         quantity: cat.quantity,
         revenue: cat.revenue,
       }))
-      .sort((a, b) => b.revenue - a.revenue);
+      .sort((a: { revenue: number }, b: { revenue: number }) => b.revenue - a.revenue);
 
     // Summary
     const totalItems = allItems.length;
-    const totalQuantity = allItems.reduce((sum, item) => sum + item.quantity, 0);
-    const totalRevenue = allItems.reduce((sum, item) => sum + item.revenue, 0);
+    const totalQuantity = allItems.reduce((sum: number, item: ItemData) => sum + item.quantity, 0);
+    const totalRevenue = allItems.reduce((sum: number, item: ItemData) => sum + item.revenue, 0);
 
     return NextResponse.json({
       topSellers,
