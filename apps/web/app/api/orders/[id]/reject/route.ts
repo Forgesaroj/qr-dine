@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { emitOrderEvent } from "@/lib/notification-events";
 import { logActivity } from "@/lib/activity-log";
@@ -62,7 +63,7 @@ export async function POST(
     }
 
     // Update order in a transaction
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update order status to CANCELLED with rejection info
       const rejected = await tx.order.update({
         where: { id },
