@@ -57,6 +57,8 @@ enum TableStatus {
   RESERVED
   CLEANING
   BLOCKED
+  BILL_REQUESTED // Guest requested bill (per SESSION_FLOW_SPEC)
+  NEEDS_ATTENTION // Guest requested help (per SESSION_FLOW_SPEC)
 }
 
 enum PricingType {
@@ -72,13 +74,13 @@ enum SessionStatus {
 
 // Session phase for detailed tracking (spec requirement)
 enum SessionPhase {
-  CREATED       // QR scanned but OTP not verified
-  SEATED        // OTP verified, waiting for first order
-  ORDERING      // Has placed at least one order
-  DINING        // Food has been served
+  CREATED // QR scanned but OTP not verified
+  SEATED // OTP verified, waiting for first order
+  ORDERING // Has placed at least one order
+  DINING // Food has been served
   BILL_REQUESTED // Bill requested, waiting for payment
-  PAYING        // Payment in progress
-  COMPLETED     // Session closed
+  PAYING // Payment in progress
+  COMPLETED // Session closed
 }
 
 enum OrderType {
@@ -237,39 +239,39 @@ enum AttendanceStatus {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model License {
-  id                       String        @id @default(cuid())
-  licenseKey               String        @unique @map("license_key")
-  tier                     LicenseTier
-  status                   LicenseStatus @default(ACTIVE)
+  id         String        @id @default(cuid())
+  licenseKey String        @unique @map("license_key")
+  tier       LicenseTier
+  status     LicenseStatus @default(ACTIVE)
 
   // Limits
-  maxRestaurants           Int           @default(1) @map("max_restaurants")
-  maxStaffPerRestaurant    Int?          @map("max_staff_per_restaurant")
-  maxTablesPerRestaurant   Int?          @map("max_tables_per_restaurant")
-  cloudStorageGb           Int           @default(0) @map("cloud_storage_gb")
+  maxRestaurants         Int  @default(1) @map("max_restaurants")
+  maxStaffPerRestaurant  Int? @map("max_staff_per_restaurant")
+  maxTablesPerRestaurant Int? @map("max_tables_per_restaurant")
+  cloudStorageGb         Int  @default(0) @map("cloud_storage_gb")
 
   // Features (JSON array of enabled feature keys)
-  features                 Json          @default("[]")
+  features Json @default("[]")
 
   // Validity
-  activatedAt              DateTime?     @map("activated_at")
-  expiresAt                DateTime?     @map("expires_at")
+  activatedAt DateTime? @map("activated_at")
+  expiresAt   DateTime? @map("expires_at")
 
   // Tracking
-  lastValidatedAt          DateTime?     @map("last_validated_at")
-  activationCount          Int           @default(0) @map("activation_count")
-  maxActivations           Int           @default(1) @map("max_activations")
+  lastValidatedAt DateTime? @map("last_validated_at")
+  activationCount Int       @default(0) @map("activation_count")
+  maxActivations  Int       @default(1) @map("max_activations")
 
   // Owner info
-  ownerName                String        @map("owner_name")
-  ownerEmail               String        @map("owner_email")
-  ownerPhone               String?       @map("owner_phone")
+  ownerName  String  @map("owner_name")
+  ownerEmail String  @map("owner_email")
+  ownerPhone String? @map("owner_phone")
 
   // Relations
-  restaurants              Restaurant[]
+  restaurants Restaurant[]
 
-  createdAt                DateTime      @default(now()) @map("created_at")
-  updatedAt                DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([licenseKey])
   @@index([status])
@@ -277,58 +279,61 @@ model License {
 }
 
 model Restaurant {
-  id                       String           @id @default(cuid())
-  licenseId                String           @map("license_id")
-  license                  License          @relation(fields: [licenseId], references: [id])
+  id        String  @id @default(cuid())
+  licenseId String  @map("license_id")
+  license   License @relation(fields: [licenseId], references: [id])
 
   // Basic info
-  name                     String
-  slug                     String           @unique
-  description              String?
-  logoUrl                  String?          @map("logo_url")
-  coverImageUrl            String?          @map("cover_image_url")
+  name          String
+  slug          String  @unique
+  description   String?
+  logoUrl       String? @map("logo_url")
+  coverImageUrl String? @map("cover_image_url")
 
   // Contact
-  address                  String?
-  city                     String?
-  state                    String?
-  country                  String           @default("Nepal")
-  postalCode               String?          @map("postal_code")
-  phone                    String?
-  email                    String?
-  website                  String?
+  address    String?
+  city       String?
+  state      String?
+  country    String  @default("Nepal")
+  postalCode String? @map("postal_code")
+  phone      String?
+  email      String?
+  website    String?
 
   // Configuration
-  currency                 String           @default("NPR")
-  timezone                 String           @default("Asia/Kathmandu")
-  settings                 Json             @default("{}")
+  currency String @default("NPR")
+  timezone String @default("Asia/Kathmandu")
+  settings Json   @default("{}")
 
-  status                   RestaurantStatus @default(ACTIVE)
+  status RestaurantStatus @default(ACTIVE)
 
   // Relations
-  users                    User[]
-  tables                   Table[]
-  categories               Category[]
-  menuItems                MenuItem[]
-  tableSessions            TableSession[]
-  orders                   Order[]
-  bills                    Bill[]
-  customers                Customer[]
-  promotions               Promotion[]
-  staffShifts              StaffShift[]
-  staffAttendance          StaffAttendance[]
-  chatMessages             ChatMessage[]
-  chatGroups               ChatGroup[]
-  announcements            Announcement[]
-  shiftNotes               ShiftNote[]
-  dailyBriefings           DailyBriefing[]
-  lostFoundItems           LostFoundItem[]
-  activityLogs             ActivityLog[]
-  rolePermissions          RolePermission[]
-  reservations             Reservation[]
+  users                User[]
+  tables               Table[]
+  categories           Category[]
+  menuItems            MenuItem[]
+  tableSessions        TableSession[]
+  orders               Order[]
+  bills                Bill[]
+  customers            Customer[]
+  promotions           Promotion[]
+  staffShifts          StaffShift[]
+  staffAttendance      StaffAttendance[]
+  chatMessages         ChatMessage[]
+  chatGroups           ChatGroup[]
+  announcements        Announcement[]
+  shiftNotes           ShiftNote[]
+  dailyBriefings       DailyBriefing[]
+  lostFoundItems       LostFoundItem[]
+  activityLogs         ActivityLog[]
+  rolePermissions      RolePermission[]
+  reservations         Reservation[]
+  qrScanEvents         QrScanEvent[]
+  tableCleaningRecords TableCleaningRecord[]
+  restaurantSettings   RestaurantSettings?
 
-  createdAt                DateTime         @default(now()) @map("created_at")
-  updatedAt                DateTime         @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([slug])
   @@index([licenseId])
@@ -336,51 +341,55 @@ model Restaurant {
 }
 
 model User {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  email                    String
-  passwordHash             String       @map("password_hash")
-  name                     String
-  phone                    String?
-  avatarUrl                String?      @map("avatar_url")
-  role                     UserRole
-  permissions              Json         @default("[]")
-  pin                      String?
-  status                   UserStatus   @default(ACTIVE)
-  lastLoginAt              DateTime?    @map("last_login_at")
+  email        String
+  passwordHash String     @map("password_hash")
+  name         String
+  phone        String?
+  avatarUrl    String?    @map("avatar_url")
+  role         UserRole
+  permissions  Json       @default("[]")
+  pin          String?
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at")
 
   // Password reset
-  resetToken               String?      @map("reset_token")
-  resetTokenExpiresAt      DateTime?    @map("reset_token_expires_at")
+  resetToken          String?   @map("reset_token")
+  resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
 
   // Relations
-  createdSessions          TableSession[] @relation("SessionCreator")
-  assignedSessions         TableSession[] @relation("SessionWaiter")
-  placedOrders             Order[]        @relation("OrderPlacer")
-  servedOrders             Order[]        @relation("OrderServer")
-  confirmedOrders          Order[]        @relation("OrderConfirmer")
-  generatedBills           Bill[]         @relation("BillGenerator")
-  settledBills             Bill[]         @relation("BillSettler")
-  processedPayments        Payment[]
-  staffShifts              StaffShift[]
-  staffAttendance          StaffAttendance[]
-  sentMessages             ChatMessage[]
-  createdAnnouncements     Announcement[]
-  writtenShiftNotes        ShiftNote[]
-  publishedBriefings       DailyBriefing[]
-  activityLogs             ActivityLog[]
-  customerNotes            CustomerNote[]
-  pointsAdjustments        PointsTransaction[]
+  createdSessions      TableSession[]      @relation("SessionCreator")
+  assignedSessions     TableSession[]      @relation("SessionWaiter")
+  placedOrders         Order[]             @relation("OrderPlacer")
+  servedOrders         Order[]             @relation("OrderServer")
+  confirmedOrders      Order[]             @relation("OrderConfirmer")
+  generatedBills       Bill[]              @relation("BillGenerator")
+  settledBills         Bill[]              @relation("BillSettler")
+  processedPayments    Payment[]
+  staffShifts          StaffShift[]
+  staffAttendance      StaffAttendance[]
+  sentMessages         ChatMessage[]
+  createdAnnouncements Announcement[]
+  writtenShiftNotes    ShiftNote[]
+  publishedBriefings   DailyBriefing[]
+  activityLogs         ActivityLog[]
+  customerNotes        CustomerNote[]
+  pointsAdjustments    PointsTransaction[]
 
   // Reservation relations
-  confirmedReservations    Reservation[] @relation("ReservationConfirmedBy")
-  seatedReservations       Reservation[] @relation("ReservationSeatedBy")
-  cancelledReservations    Reservation[] @relation("ReservationCancelledBy")
+  confirmedReservations Reservation[] @relation("ReservationConfirmedBy")
+  seatedReservations    Reservation[] @relation("ReservationSeatedBy")
+  cancelledReservations Reservation[] @relation("ReservationCancelledBy")
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  // Session flow relations (per SESSION_FLOW_SPEC)
+  cleanedTables     TableCleaningRecord[]
+  guestCountChanges GuestCountHistory[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, email])
   @@unique([restaurantId, pin])
@@ -390,31 +399,33 @@ model User {
 }
 
 model Table {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  tableNumber              String       @map("table_number")
-  name                     String?
-  capacity                 Int          @default(4)
-  floor                    String?
-  section                  String?
-  qrCode                   String?      @map("qr_code")
-  currentOtp               String?      @map("current_otp")
-  otpGeneratedAt           DateTime?    @map("otp_generated_at")
-  status                   TableStatus  @default(AVAILABLE)
-  positionX                Float?       @map("position_x")
-  positionY                Float?       @map("position_y")
+  tableNumber    String      @map("table_number")
+  name           String?
+  capacity       Int         @default(4)
+  floor          String?
+  section        String?
+  qrCode         String?     @map("qr_code")
+  currentOtp     String?     @map("current_otp")
+  otpGeneratedAt DateTime?   @map("otp_generated_at")
+  status         TableStatus @default(AVAILABLE)
+  positionX      Float?      @map("position_x")
+  positionY      Float?      @map("position_y")
 
   // Relations
-  sessions                 TableSession[]
-  orders                   Order[]
-  reservations             Reservation[]
-  assistanceRequests       AssistanceRequest[]
-  otpHistory               OtpHistory[]
+  sessions           TableSession[]
+  orders             Order[]
+  reservations       Reservation[]
+  assistanceRequests AssistanceRequest[]
+  otpHistory         OtpHistory[]
+  qrScanEvents       QrScanEvent[]
+  cleaningRecords    TableCleaningRecord[]
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, tableNumber])
   @@index([restaurantId])
@@ -427,19 +438,19 @@ model Table {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model OtpHistory {
-  id                       String       @id @default(cuid())
-  tableId                  String       @map("table_id")
-  table                    Table        @relation(fields: [tableId], references: [id])
-  restaurantId             String       @map("restaurant_id")
+  id           String @id @default(cuid())
+  tableId      String @map("table_id")
+  table        Table  @relation(fields: [tableId], references: [id])
+  restaurantId String @map("restaurant_id")
 
-  otpCode                  String       @map("otp_code")
-  generatedAt              DateTime     @default(now()) @map("generated_at")
-  usedAt                   DateTime?    @map("used_at")
-  sessionId                String?      @map("session_id")      // Link to session if OTP was used
-  expiresAt                DateTime?    @map("expires_at")      // Optional expiry
-  regeneratedReason        String?      @map("regenerated_reason") // "cleaning_complete", "manual", "timeout"
+  otpCode           String    @map("otp_code")
+  generatedAt       DateTime  @default(now()) @map("generated_at")
+  usedAt            DateTime? @map("used_at")
+  sessionId         String?   @map("session_id") // Link to session if OTP was used
+  expiresAt         DateTime? @map("expires_at") // Optional expiry
+  regeneratedReason String?   @map("regenerated_reason") // "cleaning_complete", "manual", "timeout"
 
-  createdAt                DateTime     @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([tableId])
   @@index([restaurantId])
@@ -448,26 +459,177 @@ model OtpHistory {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// QR SCAN EVENT TRACKING (Track individual QR scans before OTP per SESSION_FLOW_SPEC)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model QrScanEvent {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  tableId      String     @map("table_id")
+  table        Table      @relation(fields: [tableId], references: [id])
+
+  // Tracking info
+  scannedAt         DateTime @default(now()) @map("scanned_at")
+  deviceFingerprint String?  @map("device_fingerprint") // Browser fingerprint
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+
+  // OTP entry status
+  otpEntered   Boolean   @default(false) @map("otp_entered")
+  otpEnteredAt DateTime? @map("otp_entered_at")
+  otpAttempts  Int       @default(0) @map("otp_attempts")
+
+  // Order status
+  orderPlaced   Boolean   @default(false) @map("order_placed")
+  orderPlacedAt DateTime? @map("order_placed_at")
+
+  // Help notifications sent
+  otpHelpNotified      Boolean   @default(false) @map("otp_help_notified")
+  otpHelpNotifiedAt    DateTime? @map("otp_help_notified_at")
+  browseHelpNotified   Boolean   @default(false) @map("browse_help_notified")
+  browseHelpNotifiedAt DateTime? @map("browse_help_notified_at")
+
+  // Session created (if OTP successful)
+  sessionId String?       @map("session_id")
+  session   TableSession? @relation(fields: [sessionId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([restaurantId, tableId, scannedAt])
+  @@index([otpEntered, scannedAt])
+  @@index([sessionId])
+  @@map("qr_scan_events")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABLE CLEANING RECORDS (Track cleaning history per SESSION_FLOW_SPEC)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model TableCleaningRecord {
+  id           String        @id @default(cuid())
+  restaurantId String        @map("restaurant_id")
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  tableId      String        @map("table_id")
+  table        Table         @relation(fields: [tableId], references: [id])
+  sessionId    String?       @map("session_id") // Previous session that ended
+  session      TableSession? @relation(fields: [sessionId], references: [id])
+
+  // Timing
+  cleaningRequestedAt     DateTime  @default(now()) @map("cleaning_requested_at")
+  cleanedAt               DateTime? @map("cleaned_at")
+  cleaningDurationMinutes Int?      @map("cleaning_duration_minutes")
+
+  // Staff who cleaned
+  cleanedById String? @map("cleaned_by_id")
+  cleanedBy   User?   @relation(fields: [cleanedById], references: [id])
+
+  // Checklist (optional, if enabled in settings)
+  checklist Json? // {table_wiped: true, chairs_arranged: true, ...}
+
+  // Alert tracking
+  alertSentAt DateTime? @map("alert_sent_at")
+  escalatedAt DateTime? @map("escalated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([restaurantId, cleaningRequestedAt])
+  @@index([tableId])
+  @@index([sessionId])
+  @@map("table_cleaning_records")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESTAURANT SETTINGS (Session flow configuration per SESSION_FLOW_SPEC)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model RestaurantSettings {
+  id           String     @id @default(cuid())
+  restaurantId String     @unique @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GUEST ASSISTANCE SETTINGS
+  // ─────────────────────────────────────────────────────────────────────────────
+  assistanceEnabled     Boolean @default(true) @map("assistance_enabled")
+  otpHelpTimerMinutes   Int     @default(2) @map("otp_help_timer_minutes") // Notify if no OTP in X min
+  orderHelpTimerMinutes Int     @default(5) @map("order_help_timer_minutes") // Notify if no order in X min
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TABLE DURATION COLOR SETTINGS
+  // ─────────────────────────────────────────────────────────────────────────────
+  durationGreenMax  Int @default(30) @map("duration_green_max") // Minutes
+  durationYellowMax Int @default(60) @map("duration_yellow_max") // Minutes
+  durationOrangeMax Int @default(90) @map("duration_orange_max") // Minutes
+  // After orange_max = Red
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LONG STAY ALERTS
+  // ─────────────────────────────────────────────────────────────────────────────
+  longStayAlertEnabled  Boolean @default(true) @map("long_stay_alert_enabled")
+  longStayAlertMinutes  Int     @default(90) @map("long_stay_alert_minutes") // First alert after X min
+  longStayRepeatMinutes Int     @default(30) @map("long_stay_repeat_minutes") // Repeat every X min
+  longStayNotifyWaiter  Boolean @default(true) @map("long_stay_notify_waiter")
+  longStayNotifyManager Boolean @default(true) @map("long_stay_notify_manager")
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CLEANING SETTINGS
+  // ─────────────────────────────────────────────────────────────────────────────
+  cleaningAlertEnabled     Boolean @default(true) @map("cleaning_alert_enabled")
+  cleaningAlertMinutes     Int     @default(10) @map("cleaning_alert_minutes") // Alert if not cleaned in X min
+  cleaningChecklistEnabled Boolean @default(false) @map("cleaning_checklist_enabled")
+  cleaningChecklistItems   Json?   @map("cleaning_checklist_items") // ["Table wiped", "Chairs arranged", ...]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("restaurant_settings")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GUEST COUNT HISTORY (Audit trail for guest count changes per SESSION_FLOW_SPEC)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model GuestCountHistory {
+  id        String       @id @default(cuid())
+  sessionId String       @map("session_id")
+  session   TableSession @relation(fields: [sessionId], references: [id])
+
+  previousCount Int?     @map("previous_count")
+  newCount      Int      @map("new_count")
+  changedById   String   @map("changed_by_id")
+  changedBy     User     @relation(fields: [changedById], references: [id])
+  changedAt     DateTime @default(now()) @map("changed_at")
+  reason        String? // "Initial", "Guest added", "Guest left"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId])
+  @@index([changedById])
+  @@map("guest_count_history")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MENU
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model Category {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  name                     String
-  nameLocal                String?      @map("name_local")
-  description              String?
-  imageUrl                 String?      @map("image_url")
-  sortOrder                Int          @default(0) @map("sort_order")
-  isActive                 Boolean      @default(true) @map("is_active")
+  name        String
+  nameLocal   String? @map("name_local")
+  description String?
+  imageUrl    String? @map("image_url")
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
 
   // Relations
-  menuItems                MenuItem[]
+  menuItems MenuItem[]
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([sortOrder])
@@ -475,55 +637,55 @@ model Category {
 }
 
 model MenuItem {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
-  categoryId               String       @map("category_id")
-  category                 Category     @relation(fields: [categoryId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  categoryId   String     @map("category_id")
+  category     Category   @relation(fields: [categoryId], references: [id])
 
-  name                     String
-  nameLocal                String?      @map("name_local")
-  description              String?
-  imageUrl                 String?      @map("image_url")
-  thumbnailUrl             String?      @map("thumbnail_url")
+  name         String
+  nameLocal    String? @map("name_local")
+  description  String?
+  imageUrl     String? @map("image_url")
+  thumbnailUrl String? @map("thumbnail_url")
 
   // Pricing
-  pricingType              PricingType  @default(SINGLE) @map("pricing_type")
-  basePrice                Float        @map("base_price")
-  variantGroups            Json?        @map("variant_groups")
-  addons                   Json?
+  pricingType   PricingType @default(SINGLE) @map("pricing_type")
+  basePrice     Float       @map("base_price")
+  variantGroups Json?       @map("variant_groups")
+  addons        Json?
 
   // Dietary info
-  isVegetarian             Boolean      @default(false) @map("is_vegetarian")
-  isVegan                  Boolean      @default(false) @map("is_vegan")
-  spiceLevel               Int?         @map("spice_level")
-  allergens                Json?
+  isVegetarian Boolean @default(false) @map("is_vegetarian")
+  isVegan      Boolean @default(false) @map("is_vegan")
+  spiceLevel   Int?    @map("spice_level")
+  allergens    Json?
 
   // Takeaway settings
-  packagingCharge          Float        @default(0) @map("packaging_charge")
-  isAvailableForTakeaway   Boolean      @default(true) @map("is_available_for_takeaway")
+  packagingCharge        Float   @default(0) @map("packaging_charge")
+  isAvailableForTakeaway Boolean @default(true) @map("is_available_for_takeaway")
 
   // Availability
-  isAvailable              Boolean      @default(true) @map("is_available")
-  availableFrom            String?      @map("available_from")
-  availableUntil           String?      @map("available_until")
-  availableDays            Json?        @map("available_days")
+  isAvailable    Boolean @default(true) @map("is_available")
+  availableFrom  String? @map("available_from")
+  availableUntil String? @map("available_until")
+  availableDays  Json?   @map("available_days")
 
   // Kitchen
-  prepTimeMinutes          Int?         @map("prep_time_minutes")
-  kitchenStation           String?      @map("kitchen_station")
+  prepTimeMinutes Int?    @map("prep_time_minutes")
+  kitchenStation  String? @map("kitchen_station")
 
   // Display
-  sortOrder                Int          @default(0) @map("sort_order")
-  isPopular                Boolean      @default(false) @map("is_popular")
-  isNew                    Boolean      @default(false) @map("is_new")
-  timesOrdered             Int          @default(0) @map("times_ordered")
+  sortOrder    Int     @default(0) @map("sort_order")
+  isPopular    Boolean @default(false) @map("is_popular")
+  isNew        Boolean @default(false) @map("is_new")
+  timesOrdered Int     @default(0) @map("times_ordered")
 
   // Relations
-  orderItems               OrderItem[]
+  orderItems OrderItem[]
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -536,103 +698,106 @@ model MenuItem {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model TableSession {
-  id                       String        @id @default(cuid())
-  restaurantId             String        @map("restaurant_id")
-  restaurant               Restaurant    @relation(fields: [restaurantId], references: [id])
-  tableId                  String        @map("table_id")
-  table                    Table         @relation(fields: [tableId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  tableId      String     @map("table_id")
+  table        Table      @relation(fields: [tableId], references: [id])
 
-  guestCount               Int           @default(1) @map("guest_count")
-  customerId               String?       @map("customer_id")
-  customer                 Customer?     @relation(fields: [customerId], references: [id])
+  guestCount Int       @default(1) @map("guest_count")
+  customerId String?   @map("customer_id")
+  customer   Customer? @relation(fields: [customerId], references: [id])
 
   // OTP verification
-  otpCode                  String?       @map("otp_code")
-  otpVerified              Boolean       @default(false) @map("otp_verified")
-  otpVerifiedAt            DateTime?     @map("otp_verified_at")
+  otpCode       String?   @map("otp_code")
+  otpVerified   Boolean   @default(false) @map("otp_verified")
+  otpVerifiedAt DateTime? @map("otp_verified_at")
 
-  status                   SessionStatus @default(ACTIVE)
+  status SessionStatus @default(ACTIVE)
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // SESSION PHASE & QR SCAN TRACKING (Per Spec)
   // ═══════════════════════════════════════════════════════════════════════════════
-  phase                    SessionPhase  @default(CREATED)
+  phase SessionPhase @default(CREATED)
 
   // QR Scan tracking (before OTP entry)
-  qrScannedAt              DateTime?     @map("qr_scanned_at")        // When guest first scanned QR
-  qrScanDeviceInfo         Json?         @map("qr_scan_device_info")  // Device fingerprint, browser, etc.
+  qrScannedAt      DateTime? @map("qr_scanned_at") // When guest first scanned QR
+  qrScanDeviceInfo Json?     @map("qr_scan_device_info") // Device fingerprint, browser, etc.
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // AUTO-HELP TIMER TRACKING (Per Spec)
   // ═══════════════════════════════════════════════════════════════════════════════
   // OTP Help Timer (2 min after scan without OTP entry)
-  otpHelpNotifiedAt        DateTime?     @map("otp_help_notified_at")     // When "Need help?" sent
-  otpHelpAcknowledgedAt    DateTime?     @map("otp_help_acknowledged_at") // Staff acknowledged
+  otpHelpNotifiedAt     DateTime? @map("otp_help_notified_at") // When "Need help?" sent
+  otpHelpAcknowledgedAt DateTime? @map("otp_help_acknowledged_at") // Staff acknowledged
 
   // Ordering Help Timer (5 min after seating without order)
-  orderHelpNotifiedAt      DateTime?     @map("order_help_notified_at")   // When "Need help ordering?" sent
-  orderHelpAcknowledgedAt  DateTime?     @map("order_help_acknowledged_at") // Staff acknowledged
+  orderHelpNotifiedAt     DateTime? @map("order_help_notified_at") // When "Need help ordering?" sent
+  orderHelpAcknowledgedAt DateTime? @map("order_help_acknowledged_at") // Staff acknowledged
 
   // Long Stay Alert (90+ min)
-  longStayAlertAt          DateTime?     @map("long_stay_alert_at")       // When 90-min alert triggered
-  longStayAcknowledgedAt   DateTime?     @map("long_stay_acknowledged_at") // Staff acknowledged
+  longStayAlertAt        DateTime? @map("long_stay_alert_at") // When 90-min alert triggered
+  longStayAcknowledgedAt DateTime? @map("long_stay_acknowledged_at") // Staff acknowledged
 
   // Duration tracking
-  totalDurationMinutes     Int?          @map("total_duration_minutes")   // Calculated at session end
+  totalDurationMinutes Int? @map("total_duration_minutes") // Calculated at session end
 
   // Who started
-  startedById              String?       @map("started_by_id")
-  startedBy                User?         @relation("SessionCreator", fields: [startedById], references: [id])
-  startedByType            String        @default("STAFF") @map("started_by_type")
+  startedById   String? @map("started_by_id")
+  startedBy     User?   @relation("SessionCreator", fields: [startedById], references: [id])
+  startedByType String  @default("STAFF") @map("started_by_type")
 
   // Assigned waiter
-  waiterId                 String?       @map("waiter_id")
-  waiter                   User?         @relation("SessionWaiter", fields: [waiterId], references: [id])
+  waiterId String? @map("waiter_id")
+  waiter   User?   @relation("SessionWaiter", fields: [waiterId], references: [id])
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PHASE TIMESTAMPS (6 Dining Phases)
   // ═══════════════════════════════════════════════════════════════════════════════
 
   // Phase 1: Seating
-  seatedAt                 DateTime      @default(now()) @map("seated_at")
-  waiterNotifiedAt         DateTime?     @map("waiter_notified_at")      // Automatic when session starts
-  waiterAcknowledgedAt     DateTime?     @map("waiter_acknowledged_at")  // Waiter taps "Got it"
-  waterServedAt            DateTime?     @map("water_served_at")         // Manual - waiter taps
+  seatedAt             DateTime  @default(now()) @map("seated_at")
+  waiterNotifiedAt     DateTime? @map("waiter_notified_at") // Automatic when session starts
+  waiterAcknowledgedAt DateTime? @map("waiter_acknowledged_at") // Waiter taps "Got it"
+  waterServedAt        DateTime? @map("water_served_at") // Manual - waiter taps
 
   // Phase 2: Ordering (tracked at Order level)
-  firstOrderAt             DateTime?     @map("first_order_at")          // First order placed
-  lastOrderAt              DateTime?     @map("last_order_at")           // Most recent order
+  firstOrderAt DateTime? @map("first_order_at") // First order placed
+  lastOrderAt  DateTime? @map("last_order_at") // Most recent order
 
   // Phase 3: Serving
-  firstFoodServedAt        DateTime?     @map("first_food_served_at")    // First food item served
-  lastFoodServedAt         DateTime?     @map("last_food_served_at")     // Most recent food served
+  firstFoodServedAt DateTime? @map("first_food_served_at") // First food item served
+  lastFoodServedAt  DateTime? @map("last_food_served_at") // Most recent food served
 
   // Phase 5: Billing
-  billRequestedAt          DateTime?     @map("bill_requested_at")       // Guest taps "Request Bill"
-  billPrintedAt            DateTime?     @map("bill_printed_at")         // Staff prints bill
-  billDeliveredAt          DateTime?     @map("bill_delivered_at")       // Staff delivers bill
-  paymentCompletedAt       DateTime?     @map("payment_completed_at")    // All payments done
+  billRequestedAt    DateTime? @map("bill_requested_at") // Guest taps "Request Bill"
+  billPrintedAt      DateTime? @map("bill_printed_at") // Staff prints bill
+  billDeliveredAt    DateTime? @map("bill_delivered_at") // Staff delivers bill
+  paymentCompletedAt DateTime? @map("payment_completed_at") // All payments done
 
   // Phase 6: Cleanup
-  vacatedAt                DateTime?     @map("vacated_at")              // Guest leaves (payment complete)
-  cleaningNotifiedAt       DateTime?     @map("cleaning_notified_at")    // Automatic notification to cleaner
-  cleaningStartedAt        DateTime?     @map("cleaning_started_at")     // Cleaner taps "Start"
-  cleaningCompletedAt      DateTime?     @map("cleaning_completed_at")   // Cleaner taps "Done"
-  tableReadyAt             DateTime?     @map("table_ready_at")          // Same as cleaning completed
+  vacatedAt           DateTime? @map("vacated_at") // Guest leaves (payment complete)
+  cleaningNotifiedAt  DateTime? @map("cleaning_notified_at") // Automatic notification to cleaner
+  cleaningStartedAt   DateTime? @map("cleaning_started_at") // Cleaner taps "Start"
+  cleaningCompletedAt DateTime? @map("cleaning_completed_at") // Cleaner taps "Done"
+  tableReadyAt        DateTime? @map("table_ready_at") // Same as cleaning completed
 
   // Legacy timestamps (kept for compatibility)
-  startedAt                DateTime      @default(now()) @map("started_at")
-  endedAt                  DateTime?     @map("ended_at")
-  notes                    String?
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  notes     String?
 
   // Relations
-  orders                   Order[]
-  bills                    Bill[]
-  assistanceRequests       AssistanceRequest[]
-  reservations             Reservation[]
+  orders             Order[]
+  bills              Bill[]
+  assistanceRequests AssistanceRequest[]
+  reservations       Reservation[]
+  qrScanEvents       QrScanEvent[]
+  cleaningRecords    TableCleaningRecord[]
+  guestCountHistory  GuestCountHistory[]
 
-  createdAt                DateTime      @default(now()) @map("created_at")
-  updatedAt                DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([tableId])
@@ -641,81 +806,81 @@ model TableSession {
 }
 
 model Order {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
-  orderNumber              String       @map("order_number")
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  orderNumber  String     @map("order_number")
 
-  sessionId                String?      @map("session_id")
-  session                  TableSession? @relation(fields: [sessionId], references: [id])
-  tableId                  String?      @map("table_id")
-  table                    Table?       @relation(fields: [tableId], references: [id])
-  customerId               String?      @map("customer_id")
-  customer                 Customer?    @relation(fields: [customerId], references: [id])
+  sessionId  String?       @map("session_id")
+  session    TableSession? @relation(fields: [sessionId], references: [id])
+  tableId    String?       @map("table_id")
+  table      Table?        @relation(fields: [tableId], references: [id])
+  customerId String?       @map("customer_id")
+  customer   Customer?     @relation(fields: [customerId], references: [id])
 
   // Type
-  orderType                OrderType    @default(DINE_IN) @map("order_type")
-  orderSource              OrderSource  @default(STAFF) @map("order_source")
+  orderType   OrderType   @default(DINE_IN) @map("order_type")
+  orderSource OrderSource @default(STAFF) @map("order_source")
 
   // Takeaway/Phone Order Info
-  takeawayCustomerName     String?      @map("takeaway_customer_name")
-  takeawayCustomerPhone    String?      @map("takeaway_customer_phone")
-  pickupToken              String?      @map("pickup_token")           // e.g., "TA-001" for easy identification
-  estimatedPickupAt        DateTime?    @map("estimated_pickup_at")
-  actualPickupAt           DateTime?    @map("actual_pickup_at")
-  packagingTotal           Float        @default(0) @map("packaging_total") // Total packaging charges
+  takeawayCustomerName  String?   @map("takeaway_customer_name")
+  takeawayCustomerPhone String?   @map("takeaway_customer_phone")
+  pickupToken           String?   @map("pickup_token") // e.g., "TA-001" for easy identification
+  estimatedPickupAt     DateTime? @map("estimated_pickup_at")
+  actualPickupAt        DateTime? @map("actual_pickup_at")
+  packagingTotal        Float     @default(0) @map("packaging_total") // Total packaging charges
 
   // Status
-  status                   OrderStatus  @default(PENDING)
-  requiresConfirmation     Boolean      @default(false) @map("requires_confirmation")
+  status               OrderStatus @default(PENDING)
+  requiresConfirmation Boolean     @default(false) @map("requires_confirmation")
 
   // Confirmation
-  confirmedAt              DateTime?    @map("confirmed_at")
-  confirmedById            String?      @map("confirmed_by_id")
-  confirmedBy              User?        @relation("OrderConfirmer", fields: [confirmedById], references: [id])
-  rejectedAt               DateTime?    @map("rejected_at")
-  rejectedById             String?      @map("rejected_by_id")
-  rejectionReason          String?      @map("rejection_reason")
+  confirmedAt     DateTime? @map("confirmed_at")
+  confirmedById   String?   @map("confirmed_by_id")
+  confirmedBy     User?     @relation("OrderConfirmer", fields: [confirmedById], references: [id])
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectedById    String?   @map("rejected_by_id")
+  rejectionReason String?   @map("rejection_reason")
 
   // Amounts
-  subtotal                 Float        @default(0)
-  discountAmount           Float        @default(0) @map("discount_amount")
-  taxAmount                Float        @default(0) @map("tax_amount")
-  serviceCharge            Float        @default(0) @map("service_charge")
-  totalAmount              Float        @default(0) @map("total_amount")
+  subtotal       Float @default(0)
+  discountAmount Float @default(0) @map("discount_amount")
+  taxAmount      Float @default(0) @map("tax_amount")
+  serviceCharge  Float @default(0) @map("service_charge")
+  totalAmount    Float @default(0) @map("total_amount")
 
   // Promotion
-  promoCode                String?      @map("promo_code")
-  promotionId              String?      @map("promotion_id")
-  promotion                Promotion?   @relation(fields: [promotionId], references: [id])
-  pointsEarned             Int          @default(0) @map("points_earned")
-  pointsRedeemed           Int          @default(0) @map("points_redeemed")
+  promoCode      String?    @map("promo_code")
+  promotionId    String?    @map("promotion_id")
+  promotion      Promotion? @relation(fields: [promotionId], references: [id])
+  pointsEarned   Int        @default(0) @map("points_earned")
+  pointsRedeemed Int        @default(0) @map("points_redeemed")
 
   // Notes
-  specialInstructions      String?      @map("special_instructions")
+  specialInstructions String? @map("special_instructions")
 
   // Timestamps
-  placedAt                 DateTime     @default(now()) @map("placed_at")
-  preparingAt              DateTime?    @map("preparing_at")
-  readyAt                  DateTime?    @map("ready_at")
-  servedAt                 DateTime?    @map("served_at")
-  completedAt              DateTime?    @map("completed_at")
-  cancelledAt              DateTime?    @map("cancelled_at")
+  placedAt    DateTime  @default(now()) @map("placed_at")
+  preparingAt DateTime? @map("preparing_at")
+  readyAt     DateTime? @map("ready_at")
+  servedAt    DateTime? @map("served_at")
+  completedAt DateTime? @map("completed_at")
+  cancelledAt DateTime? @map("cancelled_at")
 
   // Staff
-  placedById               String?      @map("placed_by_id")
-  placedBy                 User?        @relation("OrderPlacer", fields: [placedById], references: [id])
-  servedById               String?      @map("served_by_id")
-  servedBy                 User?        @relation("OrderServer", fields: [servedById], references: [id])
+  placedById String? @map("placed_by_id")
+  placedBy   User?   @relation("OrderPlacer", fields: [placedById], references: [id])
+  servedById String? @map("served_by_id")
+  servedBy   User?   @relation("OrderServer", fields: [servedById], references: [id])
 
   // Relations
-  items                    OrderItem[]
-  bills                    Bill[]
-  pointsTransactions       PointsTransaction[]
-  promotionUsages          PromotionUsage[]
+  items              OrderItem[]
+  bills              Bill[]
+  pointsTransactions PointsTransaction[]
+  promotionUsages    PromotionUsage[]
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, orderNumber])
   @@index([restaurantId])
@@ -727,64 +892,64 @@ model Order {
 }
 
 model OrderItem {
-  id                       String          @id @default(cuid())
-  orderId                  String          @map("order_id")
-  order                    Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId               String          @map("menu_item_id")
-  menuItem                 MenuItem        @relation(fields: [menuItemId], references: [id])
+  id         String   @id @default(cuid())
+  orderId    String   @map("order_id")
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String   @map("menu_item_id")
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
 
-  menuItemName             String          @map("menu_item_name")
-  quantity                 Int             @default(1)
-  unitPrice                Float           @map("unit_price")
-  totalPrice               Float           @map("total_price")
+  menuItemName String @map("menu_item_name")
+  quantity     Int    @default(1)
+  unitPrice    Float  @map("unit_price")
+  totalPrice   Float  @map("total_price")
 
   // Customization
-  selectedVariants         Json?           @map("selected_variants")
-  selectedAddons           Json?           @map("selected_addons")
+  selectedVariants Json? @map("selected_variants")
+  selectedAddons   Json? @map("selected_addons")
 
   // Status
-  status                   OrderItemStatus @default(PENDING)
-  kitchenStation           String?         @map("kitchen_station")
-  isBarItem                Boolean         @default(false) @map("is_bar_item")
+  status         OrderItemStatus @default(PENDING)
+  kitchenStation String?         @map("kitchen_station")
+  isBarItem      Boolean         @default(false) @map("is_bar_item")
 
   // Takeaway settings
-  isTakeaway               Boolean         @default(false) @map("is_takeaway")
-  packagingChargeApplied   Float           @default(0) @map("packaging_charge_applied") // Snapshot of MenuItem.packagingCharge at order time
+  isTakeaway             Boolean @default(false) @map("is_takeaway")
+  packagingChargeApplied Float   @default(0) @map("packaging_charge_applied") // Snapshot of MenuItem.packagingCharge at order time
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PHASE TIMESTAMPS (Kitchen/Bar Flow)
   // ═══════════════════════════════════════════════════════════════════════════════
 
   // Kitchen Flow
-  sentToKitchenAt          DateTime?       @map("sent_to_kitchen_at")     // Automatic when order confirmed
-  kitchenReceivedAt        DateTime?       @map("kitchen_received_at")    // Automatic (same as sent)
-  preparingAt              DateTime?       @map("preparing_at")           // Cook taps "Start"
-  readyAt                  DateTime?       @map("ready_at")               // Cook taps "Ready"
-  waiterServeNotifiedAt    DateTime?       @map("waiter_serve_notified_at") // Automatic when ready
-  foodPickedAt             DateTime?       @map("food_picked_at")         // Waiter taps "Picked Up"
-  servedAt                 DateTime?       @map("served_at")              // Waiter taps "Served"
+  sentToKitchenAt       DateTime? @map("sent_to_kitchen_at") // Automatic when order confirmed
+  kitchenReceivedAt     DateTime? @map("kitchen_received_at") // Automatic (same as sent)
+  preparingAt           DateTime? @map("preparing_at") // Cook taps "Start"
+  readyAt               DateTime? @map("ready_at") // Cook taps "Ready"
+  waiterServeNotifiedAt DateTime? @map("waiter_serve_notified_at") // Automatic when ready
+  foodPickedAt          DateTime? @map("food_picked_at") // Waiter taps "Picked Up"
+  servedAt              DateTime? @map("served_at") // Waiter taps "Served"
 
   // Bar Flow (for drinks)
-  barReceivedAt            DateTime?       @map("bar_received_at")        // Automatic when order confirmed
-  barStartedAt             DateTime?       @map("bar_started_at")         // Bartender taps "Start"
-  barReadyAt               DateTime?       @map("bar_ready_at")           // Bartender taps "Ready"
-  drinkPickedAt            DateTime?       @map("drink_picked_at")        // Waiter taps "Picked Up"
-  drinkServedAt            DateTime?       @map("drink_served_at")        // Waiter taps "Served"
+  barReceivedAt DateTime? @map("bar_received_at") // Automatic when order confirmed
+  barStartedAt  DateTime? @map("bar_started_at") // Bartender taps "Start"
+  barReadyAt    DateTime? @map("bar_ready_at") // Bartender taps "Ready"
+  drinkPickedAt DateTime? @map("drink_picked_at") // Waiter taps "Picked Up"
+  drinkServedAt DateTime? @map("drink_served_at") // Waiter taps "Served"
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // SLA TRACKING (Per Spec)
   // ═══════════════════════════════════════════════════════════════════════════════
-  expectedPrepTimeMinutes  Int?            @map("expected_prep_time_minutes") // From MenuItem.prepTimeMinutes
-  actualPrepTimeMinutes    Int?            @map("actual_prep_time_minutes")   // Calculated: readyAt - preparingAt
-  slaBreached              Boolean         @default(false) @map("sla_breached") // True if exceeded expected time
-  slaBreachedAt            DateTime?       @map("sla_breached_at")              // When SLA was breached
-  slaBreachMinutes         Int?            @map("sla_breach_minutes")           // How many minutes over SLA
+  expectedPrepTimeMinutes Int?      @map("expected_prep_time_minutes") // From MenuItem.prepTimeMinutes
+  actualPrepTimeMinutes   Int?      @map("actual_prep_time_minutes") // Calculated: readyAt - preparingAt
+  slaBreached             Boolean   @default(false) @map("sla_breached") // True if exceeded expected time
+  slaBreachedAt           DateTime? @map("sla_breached_at") // When SLA was breached
+  slaBreachMinutes        Int?      @map("sla_breach_minutes") // How many minutes over SLA
 
   // Notes
-  specialRequests          String?         @map("special_requests")
+  specialRequests String? @map("special_requests")
 
-  createdAt                DateTime        @default(now()) @map("created_at")
-  updatedAt                DateTime        @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orderId])
   @@index([menuItemId])
@@ -797,45 +962,45 @@ model OrderItem {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model AssistanceRequest {
-  id                       String            @id @default(cuid())
-  restaurantId             String            @map("restaurant_id")
-  sessionId                String            @map("session_id")
-  session                  TableSession      @relation(fields: [sessionId], references: [id])
-  tableId                  String            @map("table_id")
-  table                    Table             @relation(fields: [tableId], references: [id])
+  id           String       @id @default(cuid())
+  restaurantId String       @map("restaurant_id")
+  sessionId    String       @map("session_id")
+  session      TableSession @relation(fields: [sessionId], references: [id])
+  tableId      String       @map("table_id")
+  table        Table        @relation(fields: [tableId], references: [id])
 
   // Request details
-  type                     AssistanceType    @default(CALL_WAITER)
-  note                     String?
-  priority                 String            @default("normal") // low, normal, urgent
+  type     AssistanceType @default(CALL_WAITER)
+  note     String?
+  priority String         @default("normal") // low, normal, urgent
 
   // Status
-  status                   AssistanceStatus  @default(PENDING)
+  status AssistanceStatus @default(PENDING)
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PHASE 4 TIMESTAMPS (Assistance Flow)
   // ═══════════════════════════════════════════════════════════════════════════════
-  requestedAt              DateTime          @default(now()) @map("requested_at")      // Guest taps button
-  notifiedAt               DateTime?         @map("notified_at")                       // Automatic - system sent notification
-  acknowledgedAt           DateTime?         @map("acknowledged_at")                   // Waiter taps "On My Way"
-  completedAt              DateTime?         @map("completed_at")                      // Waiter taps "Completed"
-  cancelledAt              DateTime?         @map("cancelled_at")                      // Request cancelled
+  requestedAt    DateTime  @default(now()) @map("requested_at") // Guest taps button
+  notifiedAt     DateTime? @map("notified_at") // Automatic - system sent notification
+  acknowledgedAt DateTime? @map("acknowledged_at") // Waiter taps "On My Way"
+  completedAt    DateTime? @map("completed_at") // Waiter taps "Completed"
+  cancelledAt    DateTime? @map("cancelled_at") // Request cancelled
 
   // Staff assignment
-  assignedWaiterId         String?           @map("assigned_waiter_id")
-  acknowledgedById         String?           @map("acknowledged_by_id")
-  completedById            String?           @map("completed_by_id")
+  assignedWaiterId String? @map("assigned_waiter_id")
+  acknowledgedById String? @map("acknowledged_by_id")
+  completedById    String? @map("completed_by_id")
 
   // Escalation
-  escalatedAt              DateTime?         @map("escalated_at")
-  escalatedTo              String?           @map("escalated_to")                      // Manager ID
-  escalationReason         String?           @map("escalation_reason")
+  escalatedAt      DateTime? @map("escalated_at")
+  escalatedTo      String?   @map("escalated_to") // Manager ID
+  escalationReason String?   @map("escalation_reason")
 
   // Resolution
-  resolutionNote           String?           @map("resolution_note")
+  resolutionNote String? @map("resolution_note")
 
-  createdAt                DateTime          @default(now()) @map("created_at")
-  updatedAt                DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([sessionId])
@@ -850,57 +1015,57 @@ model AssistanceRequest {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model Bill {
-  id                       String        @id @default(cuid())
-  restaurantId             String        @map("restaurant_id")
-  restaurant               Restaurant    @relation(fields: [restaurantId], references: [id])
-  billNumber               String        @map("bill_number")
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  billNumber   String     @map("bill_number")
 
-  orderId                  String        @map("order_id")
-  order                    Order         @relation(fields: [orderId], references: [id])
-  sessionId                String?       @map("session_id")
-  session                  TableSession? @relation(fields: [sessionId], references: [id])
-  customerId               String?       @map("customer_id")
-  customer                 Customer?     @relation(fields: [customerId], references: [id])
+  orderId    String        @map("order_id")
+  order      Order         @relation(fields: [orderId], references: [id])
+  sessionId  String?       @map("session_id")
+  session    TableSession? @relation(fields: [sessionId], references: [id])
+  customerId String?       @map("customer_id")
+  customer   Customer?     @relation(fields: [customerId], references: [id])
 
   // Amounts
-  subtotal                 Float         @default(0)
-  discountAmount           Float         @default(0) @map("discount_amount")
-  taxAmount                Float         @default(0) @map("tax_amount")
-  serviceCharge            Float         @default(0) @map("service_charge")
-  totalAmount              Float         @default(0) @map("total_amount")
+  subtotal       Float @default(0)
+  discountAmount Float @default(0) @map("discount_amount")
+  taxAmount      Float @default(0) @map("tax_amount")
+  serviceCharge  Float @default(0) @map("service_charge")
+  totalAmount    Float @default(0) @map("total_amount")
 
   // Payment
-  paymentStatus            PaymentStatus @default(PENDING) @map("payment_status")
-  paymentMethod            PaymentMethod? @map("payment_method")
+  paymentStatus PaymentStatus  @default(PENDING) @map("payment_status")
+  paymentMethod PaymentMethod? @map("payment_method")
 
   // Loyalty
-  pointsEarned             Int           @default(0) @map("points_earned")
-  pointsRedeemed           Int           @default(0) @map("points_redeemed")
-  pointsDiscount           Float         @default(0) @map("points_discount")
+  pointsEarned   Int   @default(0) @map("points_earned")
+  pointsRedeemed Int   @default(0) @map("points_redeemed")
+  pointsDiscount Float @default(0) @map("points_discount")
 
   // Status
-  status                   BillStatus    @default(OPEN)
-  generatedById            String?       @map("generated_by_id")
-  generatedBy              User?         @relation("BillGenerator", fields: [generatedById], references: [id])
-  settledById              String?       @map("settled_by_id")
-  settledBy                User?         @relation("BillSettler", fields: [settledById], references: [id])
+  status        BillStatus @default(OPEN)
+  generatedById String?    @map("generated_by_id")
+  generatedBy   User?      @relation("BillGenerator", fields: [generatedById], references: [id])
+  settledById   String?    @map("settled_by_id")
+  settledBy     User?      @relation("BillSettler", fields: [settledById], references: [id])
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PHASE 5 TIMESTAMPS (Billing Flow)
   // ═══════════════════════════════════════════════════════════════════════════════
-  requestedAt              DateTime?     @map("requested_at")            // Guest taps "Request Bill"
-  generatedAt              DateTime      @default(now()) @map("generated_at")  // Bill created
-  printedAt                DateTime?     @map("printed_at")              // Staff prints bill
-  deliveredAt              DateTime?     @map("delivered_at")            // Staff delivers to table
-  settledAt                DateTime?     @map("settled_at")              // Payment complete
-  paidAt                   DateTime?     @map("paid_at")                 // Final payment timestamp
+  requestedAt DateTime? @map("requested_at") // Guest taps "Request Bill"
+  generatedAt DateTime  @default(now()) @map("generated_at") // Bill created
+  printedAt   DateTime? @map("printed_at") // Staff prints bill
+  deliveredAt DateTime? @map("delivered_at") // Staff delivers to table
+  settledAt   DateTime? @map("settled_at") // Payment complete
+  paidAt      DateTime? @map("paid_at") // Final payment timestamp
 
   // Relations
-  payments                 Payment[]
-  pointsTransactions       PointsTransaction[]
+  payments           Payment[]
+  pointsTransactions PointsTransaction[]
 
-  createdAt                DateTime      @default(now()) @map("created_at")
-  updatedAt                DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, billNumber])
   @@index([restaurantId])
@@ -910,32 +1075,32 @@ model Bill {
 }
 
 model Payment {
-  id                       String        @id @default(cuid())
-  billId                   String        @map("bill_id")
-  bill                     Bill          @relation(fields: [billId], references: [id], onDelete: Cascade)
-  restaurantId             String?       @map("restaurant_id")
+  id           String  @id @default(cuid())
+  billId       String  @map("bill_id")
+  bill         Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  restaurantId String? @map("restaurant_id")
 
-  amount                   Float
-  method                   PaymentMethod
-  transactionId            String?       @map("transaction_id")
-  reference                String?
-  cashReceived             Float?        @map("cash_received")
-  changeGiven              Float?        @map("change_given")
-  status                   PaymentStatus @default(PENDING)
-  gatewayResponse          String?       @map("gateway_response")
+  amount          Float
+  method          PaymentMethod
+  transactionId   String?       @map("transaction_id")
+  reference       String?
+  cashReceived    Float?        @map("cash_received")
+  changeGiven     Float?        @map("change_given")
+  status          PaymentStatus @default(PENDING)
+  gatewayResponse String?       @map("gateway_response")
 
-  processedById            String?       @map("processed_by_id")
-  processedBy              User?         @relation(fields: [processedById], references: [id])
+  processedById String? @map("processed_by_id")
+  processedBy   User?   @relation(fields: [processedById], references: [id])
 
   // Timestamps
-  initiatedAt              DateTime      @default(now()) @map("initiated_at")
-  processedAt              DateTime?     @map("processed_at")
-  paidAt                   DateTime?     @map("paid_at")
-  failedAt                 DateTime?     @map("failed_at")
-  refundedAt               DateTime?     @map("refunded_at")
+  initiatedAt DateTime  @default(now()) @map("initiated_at")
+  processedAt DateTime? @map("processed_at")
+  paidAt      DateTime? @map("paid_at")
+  failedAt    DateTime? @map("failed_at")
+  refundedAt  DateTime? @map("refunded_at")
 
-  createdAt                DateTime      @default(now()) @map("created_at")
-  updatedAt                DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([billId])
   @@index([restaurantId])
@@ -948,59 +1113,59 @@ model Payment {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model Customer {
-  id                       String         @id @default(cuid())
-  restaurantId             String         @map("restaurant_id")
-  restaurant               Restaurant     @relation(fields: [restaurantId], references: [id])
-  customerId               String         @map("customer_id")
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId   String     @map("customer_id")
 
-  name                     String
-  phone                    String
-  email                    String?
-  dateOfBirth              DateTime?      @map("date_of_birth")
+  name        String
+  phone       String
+  email       String?
+  dateOfBirth DateTime? @map("date_of_birth")
 
   // Verification
-  phoneVerified            Boolean        @default(false) @map("phone_verified")
-  mpinHash                 String?        @map("mpin_hash")
-  mpinAttempts             Int            @default(0) @map("mpin_attempts")
-  mpinLockedUntil          DateTime?      @map("mpin_locked_until")
-  verificationMethod       String?        @map("verification_method")
-  verifiedAt               DateTime?      @map("verified_at")
-  verifiedById             String?        @map("verified_by_id")
+  phoneVerified      Boolean   @default(false) @map("phone_verified")
+  mpinHash           String?   @map("mpin_hash")
+  mpinAttempts       Int       @default(0) @map("mpin_attempts")
+  mpinLockedUntil    DateTime? @map("mpin_locked_until")
+  verificationMethod String?   @map("verification_method")
+  verifiedAt         DateTime? @map("verified_at")
+  verifiedById       String?   @map("verified_by_id")
 
   // Loyalty
-  tier                     CustomerTier   @default(BRONZE)
-  pointsBalance            Int            @default(0) @map("points_balance")
-  pointsEarnedLifetime     Int            @default(0) @map("points_earned_lifetime")
-  pointsRedeemedLifetime   Int            @default(0) @map("points_redeemed_lifetime")
+  tier                   CustomerTier @default(BRONZE)
+  pointsBalance          Int          @default(0) @map("points_balance")
+  pointsEarnedLifetime   Int          @default(0) @map("points_earned_lifetime")
+  pointsRedeemedLifetime Int          @default(0) @map("points_redeemed_lifetime")
 
   // Spending (HIDDEN from Waiter/Cashier)
-  totalSpent               Float          @default(0) @map("total_spent")
-  totalVisits              Int            @default(0) @map("total_visits")
-  averageOrderValue        Float          @default(0) @map("average_order_value")
+  totalSpent        Float @default(0) @map("total_spent")
+  totalVisits       Int   @default(0) @map("total_visits")
+  averageOrderValue Float @default(0) @map("average_order_value")
 
   // Preferences
-  favoriteItems            Json?          @map("favorite_items")
-  dietaryPreferences       Json?          @map("dietary_preferences")
-  allergies                Json?
+  favoriteItems      Json? @map("favorite_items")
+  dietaryPreferences Json? @map("dietary_preferences")
+  allergies          Json?
 
   // Marketing
-  smsOptIn                 Boolean        @default(true) @map("sms_opt_in")
-  emailOptIn               Boolean        @default(true) @map("email_opt_in")
+  smsOptIn   Boolean @default(true) @map("sms_opt_in")
+  emailOptIn Boolean @default(true) @map("email_opt_in")
 
-  status                   CustomerStatus @default(ACTIVE)
+  status CustomerStatus @default(ACTIVE)
 
   // Relations
-  tableSessions            TableSession[]
-  orders                   Order[]
-  bills                    Bill[]
-  devices                  CustomerDevice[]
-  notes                    CustomerNote[]
-  pointsTransactions       PointsTransaction[]
-  promotionUsages          PromotionUsage[]
-  reservations             Reservation[]
+  tableSessions      TableSession[]
+  orders             Order[]
+  bills              Bill[]
+  devices            CustomerDevice[]
+  notes              CustomerNote[]
+  pointsTransactions PointsTransaction[]
+  promotionUsages    PromotionUsage[]
+  reservations       Reservation[]
 
-  createdAt                DateTime       @default(now()) @map("created_at")
-  updatedAt                DateTime       @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, customerId])
   @@unique([restaurantId, phone])
@@ -1015,28 +1180,28 @@ model Customer {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model TakeawayCustomer {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
+  id           String @id @default(cuid())
+  restaurantId String @map("restaurant_id")
 
   // Basic info
-  name                     String
-  phone                    String
-  email                    String?
+  name  String
+  phone String
+  email String?
 
   // Stats
-  totalOrders              Int        @default(0) @map("total_orders")
-  totalSpent               Float      @default(0) @map("total_spent")
-  lastOrderAt              DateTime?  @map("last_order_at")
+  totalOrders Int       @default(0) @map("total_orders")
+  totalSpent  Float     @default(0) @map("total_spent")
+  lastOrderAt DateTime? @map("last_order_at")
 
   // Preferences (for quick reorder)
-  favoriteItems            Json?      @map("favorite_items")  // Array of menuItemIds
-  lastOrderItems           Json?      @map("last_order_items") // Items from last order
+  favoriteItems  Json? @map("favorite_items") // Array of menuItemIds
+  lastOrderItems Json? @map("last_order_items") // Items from last order
 
   // Notes
-  notes                    String?
+  notes String?
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, phone])
   @@index([restaurantId])
@@ -1045,19 +1210,19 @@ model TakeawayCustomer {
 }
 
 model CustomerDevice {
-  id                       String    @id @default(cuid())
-  customerId               String    @map("customer_id")
-  customer                 Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  deviceFingerprint        String    @map("device_fingerprint")
-  deviceInfo               Json?     @map("device_info")
-  trustedUntil             DateTime? @map("trusted_until")
-  isActive                 Boolean   @default(true) @map("is_active")
-  firstSeenAt              DateTime  @default(now()) @map("first_seen_at")
-  lastSeenAt               DateTime  @default(now()) @map("last_seen_at")
+  deviceFingerprint String    @map("device_fingerprint")
+  deviceInfo        Json?     @map("device_info")
+  trustedUntil      DateTime? @map("trusted_until")
+  isActive          Boolean   @default(true) @map("is_active")
+  firstSeenAt       DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at")
 
-  createdAt                DateTime  @default(now()) @map("created_at")
-  updatedAt                DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([customerId, deviceFingerprint])
   @@index([customerId])
@@ -1065,51 +1230,51 @@ model CustomerDevice {
 }
 
 model CustomerNote {
-  id                       String   @id @default(cuid())
-  customerId               String   @map("customer_id")
-  customer                 Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  note                     String
-  addedById                String   @map("added_by_id")
-  addedBy                  User     @relation(fields: [addedById], references: [id])
+  note      String
+  addedById String @map("added_by_id")
+  addedBy   User   @relation(fields: [addedById], references: [id])
 
-  createdAt                DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([customerId])
   @@map("customer_notes")
 }
 
 model PointsTransaction {
-  id                       String                 @id @default(cuid())
-  customerId               String                 @map("customer_id")
-  customer                 Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  type                     PointsTransactionType
-  points                   Int
-  balanceAfter             Int                    @map("balance_after")
+  type         PointsTransactionType
+  points       Int
+  balanceAfter Int                   @map("balance_after")
 
   // For EARN
-  orderId                  String?                @map("order_id")
-  order                    Order?                 @relation(fields: [orderId], references: [id])
-  orderAmount              Float?                 @map("order_amount")
-  multiplier               Float?
+  orderId     String? @map("order_id")
+  order       Order?  @relation(fields: [orderId], references: [id])
+  orderAmount Float?  @map("order_amount")
+  multiplier  Float?
 
   // For REDEEM
-  billId                   String?                @map("bill_id")
-  bill                     Bill?                  @relation(fields: [billId], references: [id])
-  discountAmount           Float?                 @map("discount_amount")
+  billId         String? @map("bill_id")
+  bill           Bill?   @relation(fields: [billId], references: [id])
+  discountAmount Float?  @map("discount_amount")
 
   // For BONUS/ADJUST
-  bonusType                String?                @map("bonus_type")
-  reason                   String?
-  adjustedById             String?                @map("adjusted_by_id")
-  adjustedBy               User?                  @relation(fields: [adjustedById], references: [id])
+  bonusType    String? @map("bonus_type")
+  reason       String?
+  adjustedById String? @map("adjusted_by_id")
+  adjustedBy   User?   @relation(fields: [adjustedById], references: [id])
 
   // Expiry
-  expiresAt                DateTime?              @map("expires_at")
-  expired                  Boolean                @default(false)
+  expiresAt DateTime? @map("expires_at")
+  expired   Boolean   @default(false)
 
-  createdAt                DateTime               @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([customerId])
   @@index([type])
@@ -1121,78 +1286,78 @@ model PointsTransaction {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model Promotion {
-  id                       String          @id @default(cuid())
-  restaurantId             String          @map("restaurant_id")
-  restaurant               Restaurant      @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  name                     String
-  description              String?
-  internalNote             String?         @map("internal_note")
+  name         String
+  description  String?
+  internalNote String? @map("internal_note")
 
   // Type
-  type                     PromotionType
-  discountType             DiscountType    @map("discount_type")
-  discountValue            Float           @map("discount_value")
-  maxDiscount              Float?          @map("max_discount")
+  type          PromotionType
+  discountType  DiscountType  @map("discount_type")
+  discountValue Float         @map("discount_value")
+  maxDiscount   Float?        @map("max_discount")
 
   // Applies to
-  appliesTo                String          @default("ALL") @map("applies_to")
-  categoryIds              Json?           @map("category_ids")
-  itemIds                  Json?           @map("item_ids")
+  appliesTo   String @default("ALL") @map("applies_to")
+  categoryIds Json?  @map("category_ids")
+  itemIds     Json?  @map("item_ids")
 
   // Combo specific
-  comboItems               Json?           @map("combo_items")
-  comboPrice               Float?          @map("combo_price")
+  comboItems Json?  @map("combo_items")
+  comboPrice Float? @map("combo_price")
 
   // BOGO specific
-  bogoBuyQuantity          Int?            @map("bogo_buy_quantity")
-  bogoGetQuantity          Int?            @map("bogo_get_quantity")
-  bogoGetDiscount          Float?          @map("bogo_get_discount")
-  bogoSameItem             Boolean?        @map("bogo_same_item")
-  bogoGetItems             Json?           @map("bogo_get_items")
+  bogoBuyQuantity Int?     @map("bogo_buy_quantity")
+  bogoGetQuantity Int?     @map("bogo_get_quantity")
+  bogoGetDiscount Float?   @map("bogo_get_discount")
+  bogoSameItem    Boolean? @map("bogo_same_item")
+  bogoGetItems    Json?    @map("bogo_get_items")
 
   // Promo code
-  promoCode                String?         @map("promo_code")
+  promoCode String? @map("promo_code")
 
   // Min order
-  minOrderTiers            Json?           @map("min_order_tiers")
-  minOrderAmount           Float?          @map("min_order_amount")
+  minOrderTiers  Json?  @map("min_order_tiers")
+  minOrderAmount Float? @map("min_order_amount")
 
   // Schedule
-  startDate                DateTime?       @map("start_date")
-  endDate                  DateTime?       @map("end_date")
-  daysOfWeek               Json?           @map("days_of_week")
-  startTime                String?         @map("start_time")
-  endTime                  String?         @map("end_time")
+  startDate  DateTime? @map("start_date")
+  endDate    DateTime? @map("end_date")
+  daysOfWeek Json?     @map("days_of_week")
+  startTime  String?   @map("start_time")
+  endTime    String?   @map("end_time")
 
   // Limits
-  totalUsesLimit           Int?            @map("total_uses_limit")
-  totalUsesCount           Int             @default(0) @map("total_uses_count")
-  perCustomerLimit         Int?            @map("per_customer_limit")
+  totalUsesLimit   Int? @map("total_uses_limit")
+  totalUsesCount   Int  @default(0) @map("total_uses_count")
+  perCustomerLimit Int? @map("per_customer_limit")
 
   // Eligibility
-  customerEligibility      String          @default("ALL") @map("customer_eligibility")
-  eligibleTiers            Json?           @map("eligible_tiers")
+  customerEligibility String @default("ALL") @map("customer_eligibility")
+  eligibleTiers       Json?  @map("eligible_tiers")
 
   // Display
-  showOnMenu               Boolean         @default(true) @map("show_on_menu")
-  showCountdown            Boolean         @default(false) @map("show_countdown")
-  bannerMessage            String?         @map("banner_message")
-  bannerImageUrl           String?         @map("banner_image_url")
+  showOnMenu     Boolean @default(true) @map("show_on_menu")
+  showCountdown  Boolean @default(false) @map("show_countdown")
+  bannerMessage  String? @map("banner_message")
+  bannerImageUrl String? @map("banner_image_url")
 
   // Status
-  status                   PromotionStatus @default(DRAFT)
-  timesUsed                Int             @default(0) @map("times_used")
-  totalDiscountGiven       Float           @default(0) @map("total_discount_given")
+  status             PromotionStatus @default(DRAFT)
+  timesUsed          Int             @default(0) @map("times_used")
+  totalDiscountGiven Float           @default(0) @map("total_discount_given")
 
-  createdById              String          @map("created_by_id")
+  createdById String @map("created_by_id")
 
   // Relations
-  orders                   Order[]
-  usages                   PromotionUsage[]
+  orders Order[]
+  usages PromotionUsage[]
 
-  createdAt                DateTime        @default(now()) @map("created_at")
-  updatedAt                DateTime        @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, promoCode])
   @@index([restaurantId])
@@ -1202,20 +1367,20 @@ model Promotion {
 }
 
 model PromotionUsage {
-  id                       String    @id @default(cuid())
-  promotionId              String    @map("promotion_id")
-  promotion                Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-  orderId                  String    @map("order_id")
-  order                    Order     @relation(fields: [orderId], references: [id])
-  customerId               String?   @map("customer_id")
-  customer                 Customer? @relation(fields: [customerId], references: [id])
+  id          String    @id @default(cuid())
+  promotionId String    @map("promotion_id")
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  orderId     String    @map("order_id")
+  order       Order     @relation(fields: [orderId], references: [id])
+  customerId  String?   @map("customer_id")
+  customer    Customer? @relation(fields: [customerId], references: [id])
 
-  discountAmount           Float     @map("discount_amount")
-  originalAmount           Float     @map("original_amount")
-  finalAmount              Float     @map("final_amount")
-  usedAt                   DateTime  @default(now()) @map("used_at")
+  discountAmount Float    @map("discount_amount")
+  originalAmount Float    @map("original_amount")
+  finalAmount    Float    @map("final_amount")
+  usedAt         DateTime @default(now()) @map("used_at")
 
-  createdAt                DateTime  @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([promotionId])
   @@index([orderId])
@@ -1228,27 +1393,27 @@ model PromotionUsage {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model StaffShift {
-  id                       String      @id @default(cuid())
-  restaurantId             String      @map("restaurant_id")
-  restaurant               Restaurant  @relation(fields: [restaurantId], references: [id])
-  userId                   String      @map("user_id")
-  user                     User        @relation(fields: [userId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id])
 
-  shiftDate                DateTime    @map("shift_date") @db.Date
-  shiftType                String      @map("shift_type")
-  scheduledStart           DateTime    @map("scheduled_start")
-  scheduledEnd             DateTime    @map("scheduled_end")
-  actualStart              DateTime?   @map("actual_start")
-  actualEnd                DateTime?   @map("actual_end")
-  clockInMethod            String?     @map("clock_in_method")
-  clockOutMethod           String?     @map("clock_out_method")
-  status                   ShiftStatus @default(SCHEDULED)
-  breakMinutes             Int         @default(0) @map("break_minutes")
-  overtimeMinutes          Int         @default(0) @map("overtime_minutes")
-  notes                    String?
+  shiftDate       DateTime    @map("shift_date") @db.Date
+  shiftType       String      @map("shift_type")
+  scheduledStart  DateTime    @map("scheduled_start")
+  scheduledEnd    DateTime    @map("scheduled_end")
+  actualStart     DateTime?   @map("actual_start")
+  actualEnd       DateTime?   @map("actual_end")
+  clockInMethod   String?     @map("clock_in_method")
+  clockOutMethod  String?     @map("clock_out_method")
+  status          ShiftStatus @default(SCHEDULED)
+  breakMinutes    Int         @default(0) @map("break_minutes")
+  overtimeMinutes Int         @default(0) @map("overtime_minutes")
+  notes           String?
 
-  createdAt                DateTime    @default(now()) @map("created_at")
-  updatedAt                DateTime    @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([userId])
@@ -1257,25 +1422,25 @@ model StaffShift {
 }
 
 model StaffAttendance {
-  id                       String           @id @default(cuid())
-  restaurantId             String           @map("restaurant_id")
-  restaurant               Restaurant       @relation(fields: [restaurantId], references: [id])
-  userId                   String           @map("user_id")
-  user                     User             @relation(fields: [userId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id])
 
-  date                     DateTime         @db.Date
-  clockIn                  DateTime?        @map("clock_in")
-  clockOut                 DateTime?        @map("clock_out")
-  clockInMethod            String?          @map("clock_in_method")
-  clockOutMethod           String?          @map("clock_out_method")
-  totalHours               Float?           @map("total_hours")
-  breakMinutes             Int              @default(0) @map("break_minutes")
-  status                   AttendanceStatus @default(PRESENT)
-  notes                    String?
-  approvedById             String?          @map("approved_by_id")
+  date           DateTime         @db.Date
+  clockIn        DateTime?        @map("clock_in")
+  clockOut       DateTime?        @map("clock_out")
+  clockInMethod  String?          @map("clock_in_method")
+  clockOutMethod String?          @map("clock_out_method")
+  totalHours     Float?           @map("total_hours")
+  breakMinutes   Int              @default(0) @map("break_minutes")
+  status         AttendanceStatus @default(PRESENT)
+  notes          String?
+  approvedById   String?          @map("approved_by_id")
 
-  createdAt                DateTime         @default(now()) @map("created_at")
-  updatedAt                DateTime         @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, userId, date])
   @@index([restaurantId])
@@ -1289,20 +1454,20 @@ model StaffAttendance {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model ChatMessage {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  chatType                 String     @map("chat_type")
-  chatId                   String     @map("chat_id")
-  senderId                 String     @map("sender_id")
-  sender                   User       @relation(fields: [senderId], references: [id])
-  messageText              String     @map("message_text")
-  attachments              Json?
-  readBy                   Json       @default("[]") @map("read_by")
-  sentAt                   DateTime   @default(now()) @map("sent_at")
+  chatType    String   @map("chat_type")
+  chatId      String   @map("chat_id")
+  senderId    String   @map("sender_id")
+  sender      User     @relation(fields: [senderId], references: [id])
+  messageText String   @map("message_text")
+  attachments Json?
+  readBy      Json     @default("[]") @map("read_by")
+  sentAt      DateTime @default(now()) @map("sent_at")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([restaurantId])
   @@index([chatType, chatId])
@@ -1311,42 +1476,42 @@ model ChatMessage {
 }
 
 model ChatGroup {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  name                     String
-  type                     String
-  members                  Json       @default("[]")
-  createdById              String     @map("created_by_id")
+  name        String
+  type        String
+  members     Json   @default("[]")
+  createdById String @map("created_by_id")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@map("chat_groups")
 }
 
 model Announcement {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  title                    String
-  message                  String
-  priority                 String     @default("NORMAL")
-  recipients               Json       @default("[]")
-  requireReadConfirmation  Boolean    @default(false) @map("require_read_confirmation")
-  readBy                   Json       @default("[]") @map("read_by")
-  pinned                   Boolean    @default(false)
-  scheduledAt              DateTime?  @map("scheduled_at")
-  publishedAt              DateTime?  @map("published_at")
+  title                   String
+  message                 String
+  priority                String    @default("NORMAL")
+  recipients              Json      @default("[]")
+  requireReadConfirmation Boolean   @default(false) @map("require_read_confirmation")
+  readBy                  Json      @default("[]") @map("read_by")
+  pinned                  Boolean   @default(false)
+  scheduledAt             DateTime? @map("scheduled_at")
+  publishedAt             DateTime? @map("published_at")
 
-  createdById              String     @map("created_by_id")
-  createdBy                User       @relation(fields: [createdById], references: [id])
+  createdById String @map("created_by_id")
+  createdBy   User   @relation(fields: [createdById], references: [id])
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([publishedAt])
@@ -1354,21 +1519,21 @@ model Announcement {
 }
 
 model ShiftNote {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  shiftDate                DateTime   @map("shift_date") @db.Date
-  shiftType                String     @map("shift_type")
-  notes                    String
-  tags                     Json       @default("[]")
+  shiftDate DateTime @map("shift_date") @db.Date
+  shiftType String   @map("shift_type")
+  notes     String
+  tags      Json     @default("[]")
 
-  writtenById              String     @map("written_by_id")
-  writtenBy                User       @relation(fields: [writtenById], references: [id])
-  readBy                   Json       @default("[]") @map("read_by")
+  writtenById String @map("written_by_id")
+  writtenBy   User   @relation(fields: [writtenById], references: [id])
+  readBy      Json   @default("[]") @map("read_by")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([shiftDate])
@@ -1376,27 +1541,27 @@ model ShiftNote {
 }
 
 model DailyBriefing {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  date                     DateTime   @db.Date
-  expectedCovers           Int?       @map("expected_covers")
-  reservationsCount        Int?       @map("reservations_count")
-  specialEvents            String?    @map("special_events")
-  specials                 Json?
-  eightySixed              Json?      @map("eighty_sixed")
-  staffNotes               String?    @map("staff_notes")
-  goals                    String?
-  managerMessage           String?    @map("manager_message")
-  readBy                   Json       @default("[]") @map("read_by")
+  date              DateTime @db.Date
+  expectedCovers    Int?     @map("expected_covers")
+  reservationsCount Int?     @map("reservations_count")
+  specialEvents     String?  @map("special_events")
+  specials          Json?
+  eightySixed       Json?    @map("eighty_sixed")
+  staffNotes        String?  @map("staff_notes")
+  goals             String?
+  managerMessage    String?  @map("manager_message")
+  readBy            Json     @default("[]") @map("read_by")
 
-  publishedById            String?    @map("published_by_id")
-  publishedBy              User?      @relation(fields: [publishedById], references: [id])
-  publishedAt              DateTime?  @map("published_at")
+  publishedById String?   @map("published_by_id")
+  publishedBy   User?     @relation(fields: [publishedById], references: [id])
+  publishedAt   DateTime? @map("published_at")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, date])
   @@index([restaurantId])
@@ -1409,38 +1574,38 @@ model DailyBriefing {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model LostFoundItem {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  category                 String
-  description              String
-  foundAt                  String     @map("found_at")
-  foundById                String     @map("found_by_id")
-  foundAtTime              DateTime   @map("found_at_time")
-  storageLocation          String?    @map("storage_location")
-  photoUrl                 String?    @map("photo_url")
-  notes                    String?
-  status                   String     @default("FOUND")
+  category        String
+  description     String
+  foundAt         String   @map("found_at")
+  foundById       String   @map("found_by_id")
+  foundAtTime     DateTime @map("found_at_time")
+  storageLocation String?  @map("storage_location")
+  photoUrl        String?  @map("photo_url")
+  notes           String?
+  status          String   @default("FOUND")
 
   // Claim info
-  claimedByName            String?    @map("claimed_by_name")
-  claimedByPhone           String?    @map("claimed_by_phone")
-  claimedAt                DateTime?  @map("claimed_at")
-  handedOverById           String?    @map("handed_over_by_id")
-  verificationNotes        String?    @map("verification_notes")
+  claimedByName     String?   @map("claimed_by_name")
+  claimedByPhone    String?   @map("claimed_by_phone")
+  claimedAt         DateTime? @map("claimed_at")
+  handedOverById    String?   @map("handed_over_by_id")
+  verificationNotes String?   @map("verification_notes")
 
   // Delivery info
-  deliveredAt              DateTime?  @map("delivered_at")
-  deliveryNotes            String?    @map("delivery_notes")
-  deliveredById            String?    @map("delivered_by_id")
+  deliveredAt   DateTime? @map("delivered_at")
+  deliveryNotes String?   @map("delivery_notes")
+  deliveredById String?   @map("delivered_by_id")
 
   // Disposal
-  disposedAt               DateTime?  @map("disposed_at")
-  disposedReason           String?    @map("disposed_reason")
+  disposedAt     DateTime? @map("disposed_at")
+  disposedReason String?   @map("disposed_reason")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([status])
@@ -1452,22 +1617,22 @@ model LostFoundItem {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model RolePermission {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  role                     UserRole
+  role UserRole
 
   // Page access permissions (JSON array of page keys)
   // e.g. ["dashboard", "menu", "orders", "kitchen", "billing", "tables", "staff", "reports", "settings"]
-  allowedPages             Json       @default("[]") @map("allowed_pages")
+  allowedPages Json @default("[]") @map("allowed_pages")
 
   // Feature permissions (JSON object with feature-specific settings)
   // e.g. { "canEditMenu": true, "canVoidOrders": false, "canViewReports": true }
-  featurePermissions       Json       @default("{}") @map("feature_permissions")
+  featurePermissions Json @default("{}") @map("feature_permissions")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, role])
   @@index([restaurantId])
@@ -1479,23 +1644,23 @@ model RolePermission {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model EODSettlement {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
+  id           String @id @default(cuid())
+  restaurantId String @map("restaurant_id")
 
-  date                     DateTime   @db.Date
-  totalSales               Float      @default(0) @map("total_sales")
-  totalOrders              Int        @default(0) @map("total_orders")
-  totalBills               Int        @default(0) @map("total_bills")
-  cashExpected             Float      @default(0) @map("cash_expected")
-  actualCash               Float      @default(0) @map("actual_cash")
-  variance                 Float      @default(0)
-  notes                    String?
+  date         DateTime @db.Date
+  totalSales   Float    @default(0) @map("total_sales")
+  totalOrders  Int      @default(0) @map("total_orders")
+  totalBills   Int      @default(0) @map("total_bills")
+  cashExpected Float    @default(0) @map("cash_expected")
+  actualCash   Float    @default(0) @map("actual_cash")
+  variance     Float    @default(0)
+  notes        String?
 
-  closedById               String?    @map("closed_by_id")
-  closedAt                 DateTime?  @map("closed_at")
+  closedById String?   @map("closed_by_id")
+  closedAt   DateTime? @map("closed_at")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
-  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([restaurantId, date])
   @@index([restaurantId])
@@ -1508,59 +1673,59 @@ model EODSettlement {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model Reservation {
-  id                       String            @id @default(cuid())
-  restaurantId             String            @map("restaurant_id")
-  restaurant               Restaurant        @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   // Customer details
-  customerName             String            @map("customer_name")
-  customerPhone            String            @map("customer_phone")
-  customerEmail            String?           @map("customer_email")
-  customerId               String?           @map("customer_id")
-  customer                 Customer?         @relation(fields: [customerId], references: [id])
+  customerName  String    @map("customer_name")
+  customerPhone String    @map("customer_phone")
+  customerEmail String?   @map("customer_email")
+  customerId    String?   @map("customer_id")
+  customer      Customer? @relation(fields: [customerId], references: [id])
 
   // Reservation details
-  date                     DateTime          @db.Date
-  time                     String            // "14:30" format
-  partySize                Int               @map("party_size")
-  duration                 Int               @default(90) // Expected duration in minutes
+  date      DateTime @db.Date
+  time      String // "14:30" format
+  partySize Int      @map("party_size")
+  duration  Int      @default(90) // Expected duration in minutes
 
   // Table assignment
-  tableId                  String?           @map("table_id")
-  table                    Table?            @relation(fields: [tableId], references: [id])
-  preferredSection         String?           @map("preferred_section")
+  tableId          String? @map("table_id")
+  table            Table?  @relation(fields: [tableId], references: [id])
+  preferredSection String? @map("preferred_section")
 
   // Status tracking
-  status                   ReservationStatus @default(PENDING)
-  confirmedAt              DateTime?         @map("confirmed_at")
-  confirmedById            String?           @map("confirmed_by_id")
-  confirmedBy              User?             @relation("ReservationConfirmedBy", fields: [confirmedById], references: [id])
+  status        ReservationStatus @default(PENDING)
+  confirmedAt   DateTime?         @map("confirmed_at")
+  confirmedById String?           @map("confirmed_by_id")
+  confirmedBy   User?             @relation("ReservationConfirmedBy", fields: [confirmedById], references: [id])
 
-  seatedAt                 DateTime?         @map("seated_at")
-  seatedById               String?           @map("seated_by_id")
-  seatedBy                 User?             @relation("ReservationSeatedBy", fields: [seatedById], references: [id])
+  seatedAt   DateTime? @map("seated_at")
+  seatedById String?   @map("seated_by_id")
+  seatedBy   User?     @relation("ReservationSeatedBy", fields: [seatedById], references: [id])
 
-  completedAt              DateTime?         @map("completed_at")
-  cancelledAt              DateTime?         @map("cancelled_at")
-  cancelledById            String?           @map("cancelled_by_id")
-  cancelledBy              User?             @relation("ReservationCancelledBy", fields: [cancelledById], references: [id])
-  cancellationReason       String?           @map("cancellation_reason")
+  completedAt        DateTime? @map("completed_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancelledById      String?   @map("cancelled_by_id")
+  cancelledBy        User?     @relation("ReservationCancelledBy", fields: [cancelledById], references: [id])
+  cancellationReason String?   @map("cancellation_reason")
 
   // Notes
-  notes                    String?
-  specialRequests          String?           @map("special_requests")
-  occasion                 String?           // Birthday, Anniversary, Business, etc.
+  notes           String?
+  specialRequests String? @map("special_requests")
+  occasion        String? // Birthday, Anniversary, Business, etc.
 
   // Reminder tracking
-  reminderSent             Boolean           @default(false) @map("reminder_sent")
-  reminderSentAt           DateTime?         @map("reminder_sent_at")
+  reminderSent   Boolean   @default(false) @map("reminder_sent")
+  reminderSentAt DateTime? @map("reminder_sent_at")
 
   // Session linkage (when guest is seated)
-  sessionId                String?           @map("session_id")
-  session                  TableSession?     @relation(fields: [sessionId], references: [id])
+  sessionId String?       @map("session_id")
+  session   TableSession? @relation(fields: [sessionId], references: [id])
 
-  createdAt                DateTime          @default(now()) @map("created_at")
-  updatedAt                DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([date])
@@ -1575,38 +1740,38 @@ model Reservation {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model SessionAlert {
-  id                       String       @id @default(cuid())
-  restaurantId             String       @map("restaurant_id")
-  sessionId                String       @map("session_id")
-  tableId                  String       @map("table_id")
+  id           String @id @default(cuid())
+  restaurantId String @map("restaurant_id")
+  sessionId    String @map("session_id")
+  tableId      String @map("table_id")
 
   // Alert type
-  alertType                String       @map("alert_type")
+  alertType String @map("alert_type")
   // Types: "otp_help", "order_help", "long_stay_warning", "long_stay_critical", "sla_breach", "bill_delay"
 
   // Alert details
-  triggerCondition         String       @map("trigger_condition") // e.g., "2_min_no_otp", "5_min_no_order", "90_min_stay"
-  message                  String?
-  priority                 String       @default("normal") // low, normal, high, critical
+  triggerCondition String  @map("trigger_condition") // e.g., "2_min_no_otp", "5_min_no_order", "90_min_stay"
+  message          String?
+  priority         String  @default("normal") // low, normal, high, critical
 
   // Timing
-  triggeredAt              DateTime     @default(now()) @map("triggered_at")
-  scheduledFor             DateTime?    @map("scheduled_for")     // For scheduled alerts
-  expiresAt                DateTime?    @map("expires_at")
+  triggeredAt  DateTime  @default(now()) @map("triggered_at")
+  scheduledFor DateTime? @map("scheduled_for") // For scheduled alerts
+  expiresAt    DateTime? @map("expires_at")
 
   // Status
-  status                   String       @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED, EXPIRED, DISMISSED
-  acknowledgedAt           DateTime?    @map("acknowledged_at")
-  acknowledgedById         String?      @map("acknowledged_by_id")
-  resolvedAt               DateTime?    @map("resolved_at")
-  resolvedById             String?      @map("resolved_by_id")
-  resolutionNote           String?      @map("resolution_note")
+  status           String    @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED, EXPIRED, DISMISSED
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  acknowledgedById String?   @map("acknowledged_by_id")
+  resolvedAt       DateTime? @map("resolved_at")
+  resolvedById     String?   @map("resolved_by_id")
+  resolutionNote   String?   @map("resolution_note")
 
   // For role-specific alerts
-  targetRoles              Json         @default("[\"WAITER\", \"MANAGER\"]") @map("target_roles")
+  targetRoles Json @default("[\"WAITER\", \"MANAGER\"]") @map("target_roles")
 
-  createdAt                DateTime     @default(now()) @map("created_at")
-  updatedAt                DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([restaurantId])
   @@index([sessionId])
@@ -1622,40 +1787,40 @@ model SessionAlert {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 model ActivityLog {
-  id                       String     @id @default(cuid())
-  restaurantId             String     @map("restaurant_id")
-  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  userId                   String?    @map("user_id")
-  user                     User?      @relation(fields: [userId], references: [id])
-  userName                 String?    @map("user_name")
-  userRole                 String?    @map("user_role")
-  performedBy              String     @default("staff") @map("performed_by") // staff | guest | system
+  userId      String? @map("user_id")
+  user        User?   @relation(fields: [userId], references: [id])
+  userName    String? @map("user_name")
+  userRole    String? @map("user_role")
+  performedBy String  @default("staff") @map("performed_by") // staff | guest | system
 
-  action                   String
-  activityType             String     @map("activity_type") // table_seated, order_placed, food_served, etc.
-  activityCategory         String     @map("activity_category") // seating, order, kitchen, bar, waiter, billing, manager, staff, issue
-  description              String?
-  entityType               String     @map("entity_type")
-  entityId                 String?    @map("entity_id")
+  action           String
+  activityType     String  @map("activity_type") // table_seated, order_placed, food_served, etc.
+  activityCategory String  @map("activity_category") // seating, order, kitchen, bar, waiter, billing, manager, staff, issue
+  description      String?
+  entityType       String  @map("entity_type")
+  entityId         String? @map("entity_id")
 
   // Context references
-  tableId                  String?    @map("table_id")
-  sessionId                String?    @map("session_id")
-  orderId                  String?    @map("order_id")
-  orderItemId              String?    @map("order_item_id")
+  tableId     String? @map("table_id")
+  sessionId   String? @map("session_id")
+  orderId     String? @map("order_id")
+  orderItemId String? @map("order_item_id")
 
   // Priority for filtering important events
-  priority                 String     @default("info") // critical, urgent, warning, info, notice
+  priority String @default("info") // critical, urgent, warning, info, notice
 
   // For linking related activities (e.g., prep_started → item_ready)
-  relatedActivityId        String?    @map("related_activity_id")
+  relatedActivityId String? @map("related_activity_id")
 
-  details                  Json?
-  ipAddress                String?    @map("ip_address")
-  userAgent                String?    @map("user_agent")
+  details   Json?
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
 
-  createdAt                DateTime   @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([restaurantId])
   @@index([userId])

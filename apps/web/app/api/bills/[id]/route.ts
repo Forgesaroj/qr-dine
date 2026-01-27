@@ -30,7 +30,7 @@ function stripAmountsFromBill(bill: Record<string, unknown>, canView: boolean) {
 
 // Strip amounts from item for waiters
 function stripAmountsFromItem(
-  item: { id: string; menuItemName: string; quantity: number; unitPrice: number; totalPrice: number; orderNumber?: string },
+  item: { id: string; menuItemName: string; quantity: number; unitPrice: number; totalPrice: number; orderNumber?: string; orderSource?: string; servedAt?: Date | null },
   canView: boolean
 ) {
   if (canView) return item;
@@ -40,6 +40,8 @@ function stripAmountsFromItem(
     menuItemName: item.menuItemName,
     quantity: item.quantity,
     orderNumber: item.orderNumber,
+    orderSource: item.orderSource,
+    servedAt: item.servedAt,
     // Hide prices
     unitPrice: undefined,
     totalPrice: undefined,
@@ -69,7 +71,7 @@ export async function GET(
       include: {
         order: {
           include: {
-            table: { select: { tableNumber: true, name: true } },
+            table: { select: { id: true, tableNumber: true, name: true } },
             items: {
               include: {
                 menuItem: { select: { name: true } },
@@ -96,12 +98,16 @@ export async function GET(
     let allSessionOrders: Array<{
       id: string;
       orderNumber: string;
+      orderSource: string;
+      placedAt: Date;
+      servedAt: Date | null;
       items: Array<{
         id: string;
         menuItemName: string;
         quantity: number;
         unitPrice: number;
         totalPrice: number;
+        servedAt: Date | null;
       }>;
     }> = [];
     let combinedItems: Array<{
@@ -111,7 +117,11 @@ export async function GET(
       unitPrice: number;
       totalPrice: number;
       orderNumber: string;
+      orderSource: string;
+      servedAt: Date | null;
     }> = [];
+    let firstOrderedAt: Date | null = null;
+    let lastServedAt: Date | null = null;
 
     if (bill.sessionId) {
       const sessionOrders = await prisma.order.findMany({
@@ -132,14 +142,40 @@ export async function GET(
       allSessionOrders = sessionOrders.map((o: SessionOrder) => ({
         id: o.id,
         orderNumber: o.orderNumber,
+        orderSource: o.orderSource,
+        placedAt: o.placedAt,
+        servedAt: o.servedAt,
         items: o.items.map((i: SessionOrderItem) => ({
           id: i.id,
           menuItemName: i.menuItemName,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           totalPrice: i.totalPrice,
+          servedAt: i.servedAt,
         })),
       }));
+
+      // Calculate first ordered and last served times
+      if (sessionOrders.length > 0) {
+        firstOrderedAt = sessionOrders[0].placedAt;
+
+        // Find the last served time across all orders
+        for (const order of sessionOrders) {
+          if (order.servedAt) {
+            if (!lastServedAt || order.servedAt > lastServedAt) {
+              lastServedAt = order.servedAt;
+            }
+          }
+          // Also check item-level servedAt
+          for (const item of order.items) {
+            if (item.servedAt) {
+              if (!lastServedAt || item.servedAt > lastServedAt) {
+                lastServedAt = item.servedAt;
+              }
+            }
+          }
+        }
+      }
 
       // Combine all items from all orders
       for (const order of sessionOrders) {
@@ -151,11 +187,19 @@ export async function GET(
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
             orderNumber: order.orderNumber,
+            orderSource: order.orderSource,
+            servedAt: item.servedAt,
           });
         }
       }
     } else {
       // No session, just use the primary order's items
+      // Need to fetch the order with timestamps and orderSource
+      const primaryOrder = await prisma.order.findUnique({
+        where: { id: bill.orderId },
+        select: { placedAt: true, servedAt: true, orderSource: true },
+      });
+
       type BillOrderItem = typeof bill.order.items[number];
       combinedItems = bill.order.items.map((i: BillOrderItem) => ({
         id: i.id,
@@ -164,7 +208,14 @@ export async function GET(
         unitPrice: i.unitPrice,
         totalPrice: i.totalPrice,
         orderNumber: bill.order.orderNumber,
+        orderSource: primaryOrder?.orderSource || "STAFF",
+        servedAt: null, // Primary order items don't have servedAt in this context
       }));
+
+      if (primaryOrder) {
+        firstOrderedAt = primaryOrder.placedAt;
+        lastServedAt = primaryOrder.servedAt;
+      }
     }
 
     // Strip amounts for waiters
@@ -183,6 +234,9 @@ export async function GET(
         combinedItems: processedItems,
         allOrders: allSessionOrders,
         orderCount: allSessionOrders.length || 1,
+        // Order timing info
+        firstOrderedAt,
+        lastServedAt,
       },
       amountsHidden: !canView,
     });

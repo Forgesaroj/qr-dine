@@ -7,10 +7,13 @@ import { useNotifications } from "./NotificationProvider";
 
 interface NotificationData {
   orderId?: string;
+  tableId?: string;
   tableNumber?: string;
   tableName?: string;
   status?: string;
   message?: string;
+  assistanceId?: string;
+  billId?: string;
 }
 
 export function NotificationBell() {
@@ -71,28 +74,56 @@ export function NotificationBell() {
         return "💳";
       case "TABLE_UPDATE":
         return "🪑";
+      case "ASSISTANCE_REQUEST":
+        return "🆘";
+      case "SESSION_ALERT":
+        return "⏰";
       default:
         return "📢";
     }
   };
 
-  // Get navigation URL based on notification type
+  // Get navigation URL based on notification type - with specific IDs for direct navigation
   const getNavigationUrl = (type: string, data?: NotificationData): string => {
     const baseUrl = `/${restaurantSlug}`;
 
     switch (type) {
       case "NEW_ORDER":
       case "ORDER_UPDATE":
-        // Go to orders page, or kitchen page for kitchen-specific orders
+        // Go to orders page with order highlighted
+        if (data?.orderId) {
+          return `${baseUrl}/orders?highlight=${data.orderId}`;
+        }
         return `${baseUrl}/orders`;
       case "ORDER_READY":
-        // Waiter should go to orders to see ready orders
-        return `${baseUrl}/orders`;
+        // Go to orders filtered by ready status
+        if (data?.orderId) {
+          return `${baseUrl}/orders?status=READY&highlight=${data.orderId}`;
+        }
+        return `${baseUrl}/orders?status=READY`;
       case "BILL_REQUEST":
-        // Go to billing page
+        // Go to billing page with specific bill
+        if (data?.billId) {
+          return `${baseUrl}/billing?bill=${data.billId}`;
+        }
         return `${baseUrl}/billing`;
       case "TABLE_UPDATE":
-        // Go to tables page
+        // Go to specific table details
+        if (data?.tableId) {
+          return `${baseUrl}/tables/${data.tableId}`;
+        }
+        return `${baseUrl}/tables`;
+      case "ASSISTANCE_REQUEST":
+        // Go to assistance page
+        if (data?.assistanceId) {
+          return `${baseUrl}/assistance?highlight=${data.assistanceId}`;
+        }
+        return `${baseUrl}/assistance`;
+      case "SESSION_ALERT":
+        // Go to tables page to see the alert
+        if (data?.tableId) {
+          return `${baseUrl}/tables/${data.tableId}`;
+        }
         return `${baseUrl}/tables`;
       default:
         return `${baseUrl}/dashboard`;

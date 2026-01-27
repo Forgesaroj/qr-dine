@@ -74,7 +74,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(npx vercel:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx prisma format:*)"
     ]
   }
 }

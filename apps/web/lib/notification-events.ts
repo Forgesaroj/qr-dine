@@ -2,13 +2,16 @@
 // Uses a simple pub/sub pattern with SSE
 
 type NotificationEvent = {
-  type: "NEW_ORDER" | "ORDER_UPDATE" | "ORDER_READY" | "BILL_REQUEST" | "TABLE_UPDATE";
+  type: "NEW_ORDER" | "ORDER_UPDATE" | "ORDER_READY" | "BILL_REQUEST" | "TABLE_UPDATE" | "ASSISTANCE_REQUEST" | "SESSION_ALERT";
   data: {
     orderId?: string;
+    tableId?: string;
     tableNumber?: string;
     tableName?: string;
     status?: string;
     message?: string;
+    assistanceId?: string;
+    billId?: string;
     timestamp: string;
   };
   restaurantId: string;
@@ -71,12 +74,12 @@ class NotificationEventManager {
 
   private shouldReceiveEvent(role: string, eventType: NotificationEvent["type"]): boolean {
     const roleEvents: Record<string, NotificationEvent["type"][]> = {
-      OWNER: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE"],
-      MANAGER: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE"],
-      ADMIN: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE"],
+      OWNER: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE", "ASSISTANCE_REQUEST", "SESSION_ALERT"],
+      MANAGER: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE", "ASSISTANCE_REQUEST", "SESSION_ALERT"],
+      ADMIN: ["NEW_ORDER", "ORDER_UPDATE", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE", "ASSISTANCE_REQUEST", "SESSION_ALERT"],
       KITCHEN: ["NEW_ORDER", "ORDER_UPDATE"],
-      WAITER: ["NEW_ORDER", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE"],
-      HOST: ["TABLE_UPDATE", "BILL_REQUEST"],
+      WAITER: ["NEW_ORDER", "ORDER_READY", "BILL_REQUEST", "TABLE_UPDATE", "ASSISTANCE_REQUEST", "SESSION_ALERT"],
+      HOST: ["TABLE_UPDATE", "BILL_REQUEST", "ASSISTANCE_REQUEST"],
     };
 
     return roleEvents[role]?.includes(eventType) ?? false;
@@ -137,14 +140,60 @@ export function emitBillRequest(
 export function emitTableUpdate(
   restaurantId: string,
   tableNumber: string,
-  status: string
+  status: string,
+  tableId?: string
 ): void {
   notificationEvents.broadcast({
     type: "TABLE_UPDATE",
     restaurantId,
     data: {
+      tableId,
       tableNumber,
       status,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+// Helper function to emit assistance request events
+export function emitAssistanceRequest(
+  restaurantId: string,
+  data: {
+    assistanceId: string;
+    tableId?: string;
+    tableNumber?: string;
+    tableName?: string;
+    requestType?: string;
+    message?: string;
+  }
+): void {
+  notificationEvents.broadcast({
+    type: "ASSISTANCE_REQUEST",
+    restaurantId,
+    data: {
+      ...data,
+      message: data.message || `${data.tableName || `Table ${data.tableNumber}`} needs ${data.requestType || "assistance"}`,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+// Helper function to emit session alert events
+export function emitSessionAlert(
+  restaurantId: string,
+  data: {
+    tableId?: string;
+    tableNumber?: string;
+    tableName?: string;
+    alertType?: string;
+    message: string;
+  }
+): void {
+  notificationEvents.broadcast({
+    type: "SESSION_ALERT",
+    restaurantId,
+    data: {
+      ...data,
       timestamp: new Date().toISOString(),
     },
   });

@@ -11,7 +11,7 @@ import {
 
 interface Notification {
   id: string;
-  type: "NEW_ORDER" | "ORDER_READY" | "ORDER_UPDATE" | "BILL_REQUEST" | "TABLE_UPDATE";
+  type: "NEW_ORDER" | "ORDER_READY" | "ORDER_UPDATE" | "BILL_REQUEST" | "TABLE_UPDATE" | "ASSISTANCE_REQUEST" | "SESSION_ALERT";
   title: string;
   message: string;
   timestamp: Date;
@@ -287,6 +287,24 @@ export function NotificationProvider({ children, userRole }: NotificationProvide
             type: "TABLE_UPDATE",
             title: "Table Update",
             message: eventData.data?.message || "Table status changed",
+            data: eventData.data,
+          });
+          break;
+        case "ASSISTANCE_REQUEST":
+          addNotification({
+            type: "ASSISTANCE_REQUEST",
+            title: "Help Requested!",
+            message: eventData.data?.tableName
+              ? `${eventData.data.tableName} needs assistance`
+              : eventData.data?.message || "A guest needs help",
+            data: eventData.data,
+          });
+          break;
+        case "SESSION_ALERT":
+          addNotification({
+            type: "SESSION_ALERT",
+            title: "Session Alert",
+            message: eventData.data?.message || "Table session alert",
             data: eventData.data,
           });
           break;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import { emitAssistanceRequest } from "@/lib/notification-events";
 
 // GET all assistance requests
 export async function GET(request: NextRequest) {
@@ -168,6 +169,16 @@ export async function POST(request: NextRequest) {
         assignedWaiter: tableSession.waiter?.name,
         timestamp: now.toISOString(),
       },
+    });
+
+    // Emit real-time notification to staff
+    emitAssistanceRequest(tableSession.restaurantId, {
+      assistanceId: assistanceRequest.id,
+      tableId,
+      tableNumber: tableSession.table.tableNumber,
+      tableName: tableSession.table.name || `Table ${tableSession.table.tableNumber}`,
+      requestType: type || "assistance",
+      message: note,
     });
 
     return NextResponse.json({

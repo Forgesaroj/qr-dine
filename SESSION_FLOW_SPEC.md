@@ -147,7 +147,7 @@
 │  │  Message: "Table {N} - Guest scanned QR but hasn't entered OTP"        │   │
 │  │  Priority: MEDIUM                                                        │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                 │
+│                                                                                │
 │  CASE 2: Guest enters OTP but doesn't order                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
 │  │  On successful OTP entry:                                                │   │
@@ -188,36 +188,36 @@ model QRScanEvent {
   id                  String    @id @default(cuid())
   restaurant_id       String
   table_id            String
-  
+
   // Tracking
   scanned_at          DateTime  @default(now())
   device_fingerprint  String?   // Browser fingerprint
   ip_address          String?
   user_agent          String?
-  
+
   // Status flags
   otp_entered         Boolean   @default(false)
   otp_entered_at      DateTime?
   otp_attempts        Int       @default(0)
-  
+
   order_placed        Boolean   @default(false)
   order_placed_at     DateTime?
-  
+
   // Notifications sent
   otp_help_notified   Boolean   @default(false)
   otp_help_notified_at DateTime?
-  
+
   browse_help_notified Boolean  @default(false)
   browse_help_notified_at DateTime?
-  
+
   // Session created (if successful)
   session_id          String?
-  
+
   // Relations
   restaurant          Restaurant @relation(fields: [restaurant_id], references: [id])
   table               Table      @relation(fields: [table_id], references: [id])
   session             TableSession? @relation(fields: [session_id], references: [id])
-  
+
   @@index([restaurant_id, table_id, scanned_at])
   @@index([otp_entered, scanned_at])
 }
@@ -283,16 +283,16 @@ model TableSession {
   id                  String          @id @default(cuid())
   restaurant_id       String
   table_id            String
-  
+
   // Session Info
   session_number      Int             // Daily sequence: 1, 2, 3...
   status              SessionStatus   @default(CREATED)
-  
+
   // Guest Info (STAFF ONLY CAN SET)
   guest_count         Int?
   guest_count_set_by  String?         // Staff ID
   guest_count_set_at  DateTime?
-  
+
   // Timing
   created_at          DateTime        @default(now())
   started_at          DateTime?       // When guest count entered
@@ -300,14 +300,14 @@ model TableSession {
   last_order_at       DateTime?       // Last order placed
   bill_requested_at   DateTime?
   ended_at            DateTime?       // Payment completed
-  
+
   // Billing
   bill_id             String?
   total_amount        Decimal?
-  
+
   // OTP used for this session
   otp_used            String
-  
+
   // Relations
   restaurant          Restaurant      @relation(...)
   table               Table           @relation(...)
@@ -315,7 +315,7 @@ model TableSession {
   voice_messages      VoiceMessage[]
   qr_scan_events      QRScanEvent[]
   guest_count_history GuestCountHistory[]
-  
+
   @@index([restaurant_id, table_id, status])
   @@index([restaurant_id, created_at])
 }
@@ -339,7 +339,7 @@ model GuestCountHistory {
   changed_by    String        // Staff ID
   changed_at    DateTime      @default(now())
   reason        String?       // "Initial", "Guest added", "Guest left"
-  
+
   session       TableSession  @relation(...)
   staff         User          @relation(...)
 }
@@ -389,48 +389,48 @@ model OrderItem {
   id                  String            @id @default(cuid())
   order_id            String
   menu_item_id        String
-  
+
   // Item Details
   quantity            Int
   unit_price          Decimal           @db.Decimal(10, 2)
   total_price         Decimal           @db.Decimal(10, 2)
   notes               String?
-  
+
   // Variant/Addon
   variant_id          String?
   addons              Json?             // [{addon_id, quantity, price}]
-  
+
   // STATUS
   status              OrderItemStatus   @default(PENDING)
-  
+
   // ═══════════════════════════════════════════════════════════════
   // TIME TRACKING (CRITICAL)
   // ═══════════════════════════════════════════════════════════════
   ordered_at          DateTime          @default(now())
   confirmed_at        DateTime?         // Waiter confirmed
   confirmed_by        String?           // Staff ID
-  
+
   preparing_at        DateTime?         // Kitchen started
   preparing_by        String?           // Kitchen staff ID
-  
+
   ready_at            DateTime?         // Kitchen completed
   ready_by            String?           // Kitchen staff ID
-  
+
   served_at           DateTime?         // Waiter delivered to table
   served_by           String?           // Waiter ID
-  
+
   cancelled_at        DateTime?
   cancelled_by        String?
   cancel_reason       String?
   // ═══════════════════════════════════════════════════════════════
-  
+
   // Kitchen Station
   station             KitchenStation?   @default(HOT_KITCHEN)
-  
+
   // Relations
   order               Order             @relation(...)
   menu_item           MenuItem          @relation(...)
-  
+
   @@index([order_id, status])
   @@index([status, station])
 }
@@ -610,25 +610,25 @@ model OTPHistory {
   id              String    @id @default(cuid())
   restaurant_id   String
   table_id        String
-  
+
   otp             String    // The OTP value
-  
+
   // Lifecycle
   generated_at    DateTime  @default(now())
   generated_by    String?   // Staff ID or "SYSTEM"
   generation_reason String  // "TABLE_CREATED", "SESSION_ENDED", "MANUAL_RESET"
-  
+
   used_at         DateTime? // When session started with this OTP
   session_id      String?   // Session that used this OTP
-  
+
   expired_at      DateTime? // When replaced by new OTP
   expired_reason  String?   // "SESSION_ENDED", "MANUAL_RESET"
-  
+
   // Relations
   restaurant      Restaurant @relation(...)
   table           Table      @relation(...)
   session         TableSession? @relation(...)
-  
+
   @@index([restaurant_id, table_id, generated_at])
   @@index([otp, table_id])
 }
@@ -641,15 +641,15 @@ model OTPHistory {
 
 export async function endSessionAndChangeOTP(sessionId: string) {
   return await prisma.$transaction(async (tx) => {
-    
+
     // 1. Get session details
     const session = await tx.tableSession.findUnique({
       where: { id: sessionId },
       include: { table: true }
     });
-    
+
     if (!session) throw new Error('Session not found');
-    
+
     // 2. Mark current OTP as expired
     await tx.oTPHistory.updateMany({
       where: {
@@ -661,10 +661,10 @@ export async function endSessionAndChangeOTP(sessionId: string) {
         expired_reason: 'SESSION_ENDED'
       }
     });
-    
+
     // 3. Generate new OTP
     const newOTP = generateSecureOTP(); // 3-digit random
-    
+
     // 4. Create new OTP history record
     await tx.oTPHistory.create({
       data: {
@@ -675,7 +675,7 @@ export async function endSessionAndChangeOTP(sessionId: string) {
         generation_reason: 'SESSION_ENDED'
       }
     });
-    
+
     // 5. Update table with new OTP
     await tx.table.update({
       where: { id: session.table_id },
@@ -685,7 +685,7 @@ export async function endSessionAndChangeOTP(sessionId: string) {
         status: 'CLEANING'
       }
     });
-    
+
     // 6. Mark session as completed
     await tx.tableSession.update({
       where: { id: sessionId },
@@ -694,21 +694,21 @@ export async function endSessionAndChangeOTP(sessionId: string) {
         ended_at: new Date()
       }
     });
-    
+
     // 7. Delete voice messages for this session
     const voiceMessages = await tx.voiceMessage.findMany({
       where: { session_id: sessionId }
     });
-    
+
     // Delete audio files from storage
     for (const vm of voiceMessages) {
       await deleteAudioFile(vm.audio_url);
     }
-    
+
     await tx.voiceMessage.deleteMany({
       where: { session_id: sessionId }
     });
-    
+
     // 8. Send cleaning notification
     await sendNotification({
       type: 'TABLE_READY_FOR_CLEANING',
@@ -721,7 +721,7 @@ export async function endSessionAndChangeOTP(sessionId: string) {
         total_amount: session.total_amount
       }
     });
-    
+
     return { newOTP, tableId: session.table_id };
   });
 }
@@ -818,28 +818,28 @@ model TableCleaningRecord {
   restaurant_id   String
   table_id        String
   session_id      String?   // Previous session
-  
+
   // Timing
   cleaning_requested_at DateTime @default(now())
   cleaned_at            DateTime?
   cleaning_duration     Int?      // Minutes taken
-  
+
   // Staff
   cleaned_by      String?   // Staff ID
-  
+
   // Checklist (optional)
   checklist       Json?     // {table_wiped: true, chairs: true, ...}
-  
+
   // Alert tracking
   alert_sent_at   DateTime?
   escalated_at    DateTime?
-  
+
   // Relations
   restaurant      Restaurant @relation(...)
   table           Table      @relation(...)
   session         TableSession? @relation(...)
   staff           User?      @relation(...)
-  
+
   @@index([restaurant_id, cleaning_requested_at])
 }
 ```
@@ -1056,37 +1056,37 @@ model TableCleaningRecord {
 model Table {
   id                  String        @id @default(cuid())
   restaurant_id       String
-  
+
   // Basic Info
   table_number        String
   name                String?
   capacity            Int
   floor               String?       @default("Ground")
   section             String?
-  
+
   // QR & OTP
   qr_code             String?       @unique
   current_otp         String
   otp_generated_at    DateTime      @default(now())
-  
+
   // Position (for floor plan)
   position_x          Int?
   position_y          Int?
-  
+
   // Status
   status              TableStatus   @default(AVAILABLE)
-  
+
   // Timestamps
   created_at          DateTime      @default(now())
   updated_at          DateTime      @updatedAt
-  
+
   // Relations
   restaurant          Restaurant    @relation(...)
   sessions            TableSession[]
   otp_history         OTPHistory[]
   qr_scan_events      QRScanEvent[]
   cleaning_records    TableCleaningRecord[]
-  
+
   @@unique([restaurant_id, table_number])
   @@index([restaurant_id, status])
 }
@@ -1109,14 +1109,14 @@ enum TableStatus {
 model RestaurantSettings {
   id                  String    @id @default(cuid())
   restaurant_id       String    @unique
-  
+
   // ─────────────────────────────────────────────────────────────────────────────
   // GUEST ASSISTANCE SETTINGS
   // ─────────────────────────────────────────────────────────────────────────────
   assistance_enabled          Boolean   @default(true)
   otp_help_timer_minutes      Int       @default(2)     // Notify if no OTP in X min
   order_help_timer_minutes    Int       @default(5)     // Notify if no order in X min
-  
+
   // ─────────────────────────────────────────────────────────────────────────────
   // TABLE DURATION SETTINGS
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1124,7 +1124,7 @@ model RestaurantSettings {
   duration_yellow_max         Int       @default(60)    // Minutes
   duration_orange_max         Int       @default(90)    // Minutes
   // After orange_max = Red
-  
+
   // ─────────────────────────────────────────────────────────────────────────────
   // LONG STAY ALERTS
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1133,7 +1133,7 @@ model RestaurantSettings {
   long_stay_repeat_minutes    Int       @default(30)    // Repeat every X min
   long_stay_notify_waiter     Boolean   @default(true)
   long_stay_notify_manager    Boolean   @default(true)
-  
+
   // ─────────────────────────────────────────────────────────────────────────────
   // CLEANING SETTINGS
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1141,7 +1141,7 @@ model RestaurantSettings {
   cleaning_alert_minutes      Int       @default(10)    // Alert if not cleaned in X min
   cleaning_checklist_enabled  Boolean   @default(false)
   cleaning_checklist_items    Json?     // ["Table wiped", "Chairs arranged", ...]
-  
+
   // Relations
   restaurant        Restaurant  @relation(...)
 }

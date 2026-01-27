@@ -29,7 +29,13 @@ import {
   Star,
   Award,
   Medal,
+  Clock,
+  UtensilsCrossed,
+  Phone,
+  MapPin,
+  Package,
 } from "lucide-react";
+import { Select } from "@qr-dine/ui";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -63,16 +69,26 @@ interface OrderItem {
   unitPrice: number;
   totalPrice: number;
   orderNumber?: string;
+  orderSource?: string;
+  servedAt?: string | null;
+  orderedAt?: string | null;
 }
 
 interface Order {
   id: string;
   orderNumber: string;
-  table: { tableNumber: string; name: string | null } | null;
+  orderType?: string;
+  orderSource?: string;
+  table: { id?: string; tableNumber: string; name: string | null } | null;
+  tableId?: string | null;
   items: OrderItem[];
   subtotal: number;
   totalAmount: number;
   status: string;
+  // Takeaway/Phone order customer info
+  takeawayCustomerName?: string | null;
+  takeawayCustomerPhone?: string | null;
+  pickupToken?: string | null;
 }
 
 interface Payment {
@@ -101,7 +117,10 @@ interface Bill {
   // Combined items from all orders in the session
   combinedItems?: OrderItem[];
   orderCount?: number;
-  allOrders?: Array<{ id: string; orderNumber: string; items: OrderItem[] }>;
+  allOrders?: Array<{ id: string; orderNumber: string; orderSource: string; placedAt: string; servedAt?: string | null; items: OrderItem[] }>;
+  // Order timing info
+  firstOrderedAt?: string;
+  lastServedAt?: string;
 }
 
 const paymentMethods = [
@@ -143,10 +162,54 @@ export default function BillingPage() {
     newTier: string | null;
   } | null>(null);
 
+  // Table assignment state
+  const [tables, setTables] = useState<Array<{ id: string; tableNumber: string; name: string | null; status: string }>>([]);
+  const [assigningTable, setAssigningTable] = useState(false);
+
   useEffect(() => {
     fetchBills();
     fetchLoyaltySettings();
+    fetchTables();
   }, [filter]);
+
+  const fetchTables = async () => {
+    try {
+      const res = await fetch("/api/tables");
+      if (res.ok) {
+        const data = await res.json();
+        setTables(data.tables || []);
+      }
+    } catch (error) {
+      console.error("Error fetching tables:", error);
+    }
+  };
+
+  const assignTableToOrder = async (tableId: string) => {
+    if (!selectedBill) return;
+
+    setAssigningTable(true);
+    try {
+      const res = await fetch(`/api/orders/${selectedBill.order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableId }),
+      });
+
+      if (res.ok) {
+        // Refresh the bill to get updated table info
+        selectBill(selectedBill.id);
+        fetchBills();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to assign table");
+      }
+    } catch (error) {
+      console.error("Error assigning table:", error);
+      alert("Failed to assign table");
+    } finally {
+      setAssigningTable(false);
+    }
+  };
 
   const fetchLoyaltySettings = async () => {
     try {
@@ -389,17 +452,37 @@ export default function BillingPage() {
             <p>Bill #: ${selectedBill.billNumber}</p>
             <p>${selectedBill.orderCount && selectedBill.orderCount > 1 ? `${selectedBill.orderCount} Orders Combined` : `Order #: ${selectedBill.order.orderNumber}`}</p>
             ${selectedBill.order.table ? `<p>Table: ${selectedBill.order.table.tableNumber}</p>` : ""}
+            ${(selectedBill.order.orderType === "PHONE" || selectedBill.order.orderType === "TAKEAWAY") ? `
+              <p style="font-weight: bold; margin-top: 5px;">${selectedBill.order.orderType === "PHONE" ? "PHONE ORDER" : "TAKEAWAY"}${selectedBill.order.pickupToken ? ` - ${selectedBill.order.pickupToken}` : ""}</p>
+              ${selectedBill.order.takeawayCustomerName ? `<p>Customer: ${selectedBill.order.takeawayCustomerName}</p>` : ""}
+              ${selectedBill.order.takeawayCustomerPhone ? `<p>Phone: ${selectedBill.order.takeawayCustomerPhone}</p>` : ""}
+            ` : ""}
             <p>Date: ${new Date(selectedBill.generatedAt).toLocaleString()}</p>
+            ${selectedBill.firstOrderedAt ? `<p>Post Time: ${new Date(selectedBill.firstOrderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ""}
+            ${selectedBill.payments.length > 0 ? `<p>End Time: ${new Date(selectedBill.payments[selectedBill.payments.length - 1].processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ""}
           </div>
           <div class="items">
             ${(selectedBill.combinedItems || selectedBill.order.items)
               .map(
-                (item) => `
-              <div class="item">
-                <span>${item.quantity}x ${item.menuItemName}</span>
-                <span>Rs.${item.totalPrice.toFixed(0)}</span>
+                (item) => {
+                  const itemOrder = selectedBill.allOrders?.find(
+                    (o) => o.orderNumber === item.orderNumber
+                  );
+                  const orderedAt = itemOrder?.placedAt;
+                  const orderSource = item.orderSource || itemOrder?.orderSource || "STAFF";
+                  const isGuestOrder = orderSource === "QR";
+                  return `
+              <div class="item" style="flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                  <span>${item.quantity}x ${item.menuItemName}${item.orderNumber ? ` (${item.orderNumber})` : ''} [${isGuestOrder ? 'Guest' : 'Staff'}]</span>
+                  <span>Rs.${item.totalPrice.toFixed(0)}</span>
+                </div>
+                ${orderedAt ? `<div style="font-size: 10px; color: #666; margin-top: 2px;">
+                  ${new Date(orderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${item.servedAt ? ` - ${Math.round((new Date(item.servedAt).getTime() - new Date(orderedAt).getTime()) / 60000)}min - ${new Date(item.servedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                </div>` : ''}
               </div>
-            `
+            `;
+                }
               )
               .join("")}
           </div>
@@ -604,6 +687,72 @@ export default function BillingPage() {
                         {selectedBill.order.table &&
                           ` · Table ${selectedBill.order.table.tableNumber}`}
                       </CardDescription>
+                      {/* Session Timing Info */}
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                        {selectedBill.firstOrderedAt && (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>Post Time: {new Date(selectedBill.firstOrderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        )}
+                        {selectedBill.payments.length > 0 && (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <UtensilsCrossed className="h-3.5 w-3.5" />
+                            <span>End Time: {new Date(selectedBill.payments[selectedBill.payments.length - 1].processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Phone/Takeaway Customer Details */}
+                      {(selectedBill.order.orderType === "PHONE" || selectedBill.order.orderType === "TAKEAWAY") && (
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Package className="h-4 w-4 text-amber-600" />
+                            <span className="font-medium text-amber-800">
+                              {selectedBill.order.orderType === "PHONE" ? "Phone Order" : "Takeaway Order"}
+                              {selectedBill.order.pickupToken && ` · ${selectedBill.order.pickupToken}`}
+                            </span>
+                          </div>
+                          {(selectedBill.order.takeawayCustomerName || selectedBill.order.takeawayCustomerPhone) && (
+                            <div className="space-y-1 text-sm">
+                              {selectedBill.order.takeawayCustomerName && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <User className="h-3.5 w-3.5" />
+                                  <span>{selectedBill.order.takeawayCustomerName}</span>
+                                </div>
+                              )}
+                              {selectedBill.order.takeawayCustomerPhone && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Phone className="h-3.5 w-3.5" />
+                                  <span>{selectedBill.order.takeawayCustomerPhone}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Table Assignment for Phone Orders */}
+                          {!selectedBill.order.table && (
+                            <div className="mt-3 pt-3 border-t border-amber-200">
+                              <div className="flex gap-2 items-end">
+                                <div className="flex-1">
+                                  <Select
+                                    placeholder="Assign to table"
+                                    options={tables
+                                      .filter((t) => t.status === "AVAILABLE" || t.status === "OCCUPIED")
+                                      .map((table) => ({
+                                        value: table.id,
+                                        label: `Table ${table.tableNumber}${table.name ? ` (${table.name})` : ''}`,
+                                      }))}
+                                    onChange={assignTableToOrder}
+                                    disabled={assigningTable}
+                                  />
+                                </div>
+                                {assigningTable && <Loader2 className="h-5 w-5 animate-spin text-amber-600" />}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={printReceipt}>
@@ -622,23 +771,54 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent>
                   {/* Order Items - use combinedItems if available */}
-                  <div className="space-y-2 mb-4">
-                    {(selectedBill.combinedItems || selectedBill.order.items).map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-between text-sm"
-                      >
-                        <span>
-                          {item.quantity}x {item.menuItemName}
-                          {item.orderNumber && selectedBill.orderCount && selectedBill.orderCount > 1 && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({item.orderNumber})
-                            </span>
-                          )}
-                        </span>
-                        <span>{formatCurrency(item.totalPrice)}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-3 mb-4">
+                    {(selectedBill.combinedItems || selectedBill.order.items).map((item) => {
+                      // Find the order's placedAt time for this item
+                      const itemOrder = selectedBill.allOrders?.find(
+                        (o) => o.orderNumber === item.orderNumber
+                      );
+                      const orderedAt = itemOrder?.placedAt;
+                      const orderSource = item.orderSource || itemOrder?.orderSource || "STAFF";
+                      const isGuestOrder = orderSource === "QR";
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex justify-between text-sm border-b pb-2 last:border-b-0"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">
+                                {item.quantity}x {item.menuItemName}
+                              </span>
+                              {item.orderNumber && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                  {item.orderNumber}
+                                </span>
+                              )}
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${isGuestOrder ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {isGuestOrder ? 'Guest' : 'Staff'}
+                              </span>
+                            </div>
+                            {orderedAt && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {new Date(orderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {item.servedAt && (() => {
+                                    const orderedTime = new Date(orderedAt).getTime();
+                                    const servedTime = new Date(item.servedAt).getTime();
+                                    const diffMinutes = Math.round((servedTime - orderedTime) / 60000);
+                                    return ` - ${diffMinutes}min - ${new Date(item.servedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                  })()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-medium">{formatCurrency(item.totalPrice)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Totals */}

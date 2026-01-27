@@ -134,11 +134,29 @@ export async function POST(
         },
       });
 
-      // Mark table as available if it exists
+      // Mark table as CLEANING and generate new OTP (per SESSION_FLOW_SPEC.md)
       if (bill.order?.table) {
+        const newOtp = String(Math.floor(100 + Math.random() * 900)); // 3-digit OTP
         await prisma.table.update({
           where: { id: bill.order.table.id },
-          data: { status: "AVAILABLE" },
+          data: {
+            status: "CLEANING",
+            currentOtp: newOtp,
+            otpGeneratedAt: new Date(),
+          },
+        });
+
+        // End any active session for this table
+        await prisma.tableSession.updateMany({
+          where: {
+            tableId: bill.order.table.id,
+            status: "ACTIVE",
+          },
+          data: {
+            status: "COMPLETED",
+            endedAt: new Date(),
+            paymentCompletedAt: new Date(),
+          },
         });
       }
 

@@ -60,7 +60,48 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const { status, tableId } = body;
+
+    // If only tableId is provided, handle table assignment
+    if (tableId !== undefined && !status) {
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          id,
+          restaurantId: session.restaurantId,
+        },
+      });
+
+      if (!existingOrder) {
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
+
+      // Verify table exists and belongs to this restaurant
+      const table = await prisma.table.findFirst({
+        where: {
+          id: tableId,
+          restaurantId: session.restaurantId,
+        },
+      });
+
+      if (!table) {
+        return NextResponse.json({ error: "Table not found" }, { status: 404 });
+      }
+
+      const order = await prisma.order.update({
+        where: { id },
+        data: { tableId },
+        include: {
+          table: true,
+          items: {
+            include: {
+              menuItem: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json({ order });
+    }
 
     // Validate status transition
     const validStatuses = [
@@ -74,9 +115,16 @@ export async function PATCH(
       "CANCELLED",
     ];
 
-    if (!validStatuses.includes(status)) {
+    if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { error: "Invalid status" },
+        { status: 400 }
+      );
+    }
+
+    if (!status) {
+      return NextResponse.json(
+        { error: "Status or tableId required" },
         { status: 400 }
       );
     }
