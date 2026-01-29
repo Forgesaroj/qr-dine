@@ -12,7 +12,9 @@ type NotificationEvent = {
     message?: string;
     assistanceId?: string;
     billId?: string;
+    alertType?: string;
     timestamp: string;
+    [key: string]: unknown;
   };
   restaurantId: string;
 };
@@ -198,3 +200,138 @@ export function emitSessionAlert(
     },
   });
 }
+
+/**
+ * Session Flow Notification Types
+ * Per SESSION_FLOW_SPEC.md - Section on Notifications
+ */
+export type SessionFlowNotificationType =
+  | "otp_help"           // Guest hasn't entered OTP for 2+ min
+  | "order_help"         // Guest seated 5+ min without order
+  | "long_stay_warning"  // Session > 90 min
+  | "long_stay_critical" // Session > 120 min
+  | "cleaning_delay"     // Table waiting for cleaning > threshold
+  | "new_guest_seated"   // Guest verified OTP and seated
+  | "order_placed"       // Guest placed an order
+  | "bill_requested"     // Guest requested bill
+  | "payment_completed"  // Payment completed
+  | "table_ready"        // Table cleaned and available
+  | "needs_attention";   // Guest requested assistance
+
+export interface SendNotificationParams {
+  restaurantId: string;
+  type: SessionFlowNotificationType;
+  title: string;
+  message: string;
+  tableId?: string;
+  sessionId?: string;
+  orderId?: string;
+  targetRoles?: ("WAITER" | "MANAGER" | "KITCHEN" | "HOST")[];
+  priority?: "low" | "normal" | "high" | "critical";
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Send a notification for session flow events
+ * This is a unified function for all session-related notifications
+ */
+export async function sendNotification(params: SendNotificationParams): Promise<void> {
+  const {
+    restaurantId,
+    type,
+    title,
+    message,
+    tableId,
+    sessionId,
+    orderId,
+    targetRoles = ["WAITER"],
+    priority = "normal",
+    data,
+  } = params;
+
+  // Emit SSE event for real-time updates
+  notificationEvents.broadcast({
+    type: "SESSION_ALERT",
+    restaurantId,
+    data: {
+      tableId,
+      alertType: type,
+      message,
+      timestamp: new Date().toISOString(),
+      ...data,
+    },
+  });
+
+  // Log for debugging
+  console.log(`[Notification] ${type}: ${message}`, {
+    restaurantId,
+    tableId,
+    sessionId,
+    orderId,
+    targetRoles,
+    priority,
+  });
+
+  // Future: Could integrate with push notifications, SMS, etc.
+  // For now, just broadcast via SSE
+}
+
+/**
+ * Notification templates for common session flow events
+ */
+export const notificationTemplates = {
+  otp_help: (tableNumber: string, minutes: number) => ({
+    title: "OTP Help Needed",
+    message: `Table ${tableNumber}: Guest hasn't entered OTP for ${minutes} minutes`,
+  }),
+
+  order_help: (tableNumber: string, minutes: number) => ({
+    title: "Order Help Needed",
+    message: `Table ${tableNumber}: Guest seated ${minutes} minutes without ordering`,
+  }),
+
+  long_stay_warning: (tableNumber: string, minutes: number, guestCount?: number) => ({
+    title: "Long Stay Alert",
+    message: `Table ${tableNumber}: ${guestCount ? `${guestCount} guests` : "Guests"} seated for ${minutes} minutes`,
+  }),
+
+  long_stay_critical: (tableNumber: string, minutes: number, guestCount?: number) => ({
+    title: "Long Stay Critical",
+    message: `Table ${tableNumber}: ${guestCount ? `${guestCount} guests` : "Guests"} seated for ${minutes}+ minutes`,
+  }),
+
+  cleaning_delay: (tableNumber: string, minutes: number) => ({
+    title: "Cleaning Needed",
+    message: `Table ${tableNumber}: Waiting for cleaning for ${minutes} minutes`,
+  }),
+
+  new_guest_seated: (tableNumber: string, guestCount?: number) => ({
+    title: "New Guest Seated",
+    message: `Table ${tableNumber}: ${guestCount ? `${guestCount} guests` : "Guest"} seated`,
+  }),
+
+  order_placed: (tableNumber: string, itemCount: number, total: number) => ({
+    title: "New Order",
+    message: `Table ${tableNumber}: ${itemCount} items, ₹${total}`,
+  }),
+
+  bill_requested: (tableNumber: string) => ({
+    title: "Bill Requested",
+    message: `Table ${tableNumber} requested the bill`,
+  }),
+
+  payment_completed: (tableNumber: string, amount: number) => ({
+    title: "Payment Completed",
+    message: `Table ${tableNumber}: ₹${amount} received`,
+  }),
+
+  table_ready: (tableNumber: string) => ({
+    title: "Table Ready",
+    message: `Table ${tableNumber} is cleaned and ready`,
+  }),
+
+  needs_attention: (tableNumber: string, reason?: string) => ({
+    title: "Assistance Needed",
+    message: `Table ${tableNumber}${reason ? `: ${reason}` : " needs attention"}`,
+  }),
+};

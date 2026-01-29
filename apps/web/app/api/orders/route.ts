@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       where: status === "active"
         ? {
             restaurantId: session.restaurantId,
-            status: { in: ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"] },
+            status: { in: ["PENDING", "PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "READY", "SERVED"] },
           }
         : status === "completed"
         ? { restaurantId: session.restaurantId, status: "COMPLETED" }
@@ -42,6 +42,13 @@ export async function GET(request: NextRequest) {
             totalPrice: true,
             status: true,
             specialRequests: true,
+            // Time tracking
+            createdAt: true,
+            sentToKitchenAt: true,
+            preparingAt: true,
+            readyAt: true,
+            servedAt: true,
+            foodPickedAt: true,
           },
         },
       },

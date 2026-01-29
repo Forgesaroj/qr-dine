@@ -76,7 +76,20 @@
       "Bash(npx vercel:*)",
       "Bash(tee:*)",
       "Bash(pnpm build:*)",
-      "Bash(npx prisma format:*)"
+      "Bash(npx prisma format:*)",
+      "Bash(npm run build:*)",
+      "Bash(net start:*)",
+      "Bash(net start postgresql-x64-16)",
+      "Bash(sc query:*)",
+      "Bash(cmd //c \"taskkill /F /IM node.exe\")",
+      "Bash(npm run dev:*)",
+      "Bash(cmd /c \"set DATABASE_URL=postgresql://postgres:qrdine@localhost:5432/qrdine&& npx prisma db push\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:qrdine@localhost:5432/qrdine?schema=public\" npx prisma db push:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:postgres@localhost:5432/qrdine\" npx prisma db push:*)",
+      "Bash(cmd //c \"taskkill /PID 812 /F\")",
+      "Bash(cmd /C \"set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/qrdine?schema=public && npx prisma db push --accept-data-loss\")",
+      "Bash(powershell:*)",
+      "Bash(del \"d:\\\\Project file\\\\On going Project\\\\QR-DIne\\\\packages\\\\database\\\\run-prisma.ps1\")"
     ]
   }
 }

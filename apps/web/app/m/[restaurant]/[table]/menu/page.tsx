@@ -22,6 +22,7 @@ import {
   Gift,
   Cake,
   PartyPopper,
+  ChevronRight,
 } from "lucide-react";
 import { useGuest } from "../GuestContext";
 
@@ -332,33 +333,38 @@ export default function GuestMenuPage() {
           {/* Loyalty Status Bar */}
           {!isPreviewMode && loyalty.enabled && loyalty.customer && (
             <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg px-3 py-2 border border-amber-200">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium text-amber-800">
-                    {loyalty.customer.name}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      loyalty.customer.tier === "PLATINUM"
-                        ? "bg-purple-100 text-purple-700 border-purple-300"
-                        : loyalty.customer.tier === "GOLD"
-                        ? "bg-yellow-100 text-yellow-700 border-yellow-300"
-                        : loyalty.customer.tier === "SILVER"
-                        ? "bg-gray-100 text-gray-700 border-gray-300"
-                        : "bg-amber-100 text-amber-700 border-amber-300"
-                    }`}
-                  >
-                    {loyalty.customer.tier}
-                  </Badge>
+              <Link href={`/m/${restaurantSlug}/${tableId}/loyalty`}>
+                <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg px-3 py-2 border border-amber-200 cursor-pointer hover:border-amber-300 hover:shadow-sm transition-all">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-medium text-amber-800">
+                      {loyalty.customer.name}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        loyalty.customer.tier === "PLATINUM"
+                          ? "bg-purple-100 text-purple-700 border-purple-300"
+                          : loyalty.customer.tier === "GOLD"
+                          ? "bg-yellow-100 text-yellow-700 border-yellow-300"
+                          : loyalty.customer.tier === "SILVER"
+                          ? "bg-gray-100 text-gray-700 border-gray-300"
+                          : "bg-amber-100 text-amber-700 border-amber-300"
+                      }`}
+                    >
+                      {loyalty.customer.tier}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-amber-700">
+                      <Coins className="h-4 w-4" />
+                      <span className="font-semibold">{loyalty.customer.pointsBalance}</span>
+                      <span className="text-xs">pts</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-amber-400" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-amber-700">
-                  <Coins className="h-4 w-4" />
-                  <span className="font-semibold">{loyalty.customer.pointsBalance}</span>
-                  <span className="text-xs">pts</span>
-                </div>
-              </div>
+              </Link>
 
               {/* Expiring Points Warning */}
               {loyalty.expiringPoints?.hasExpiringPoints && (

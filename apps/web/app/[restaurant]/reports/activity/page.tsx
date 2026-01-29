@@ -44,6 +44,7 @@ interface ActivityLog {
   tableId?: string;
   sessionId?: string;
   orderId?: string;
+  userId?: string;
   userName?: string;
   userRole?: string;
   performedBy: string;
@@ -62,6 +63,19 @@ interface ActivityData {
     byCategory: Record<string, number>;
     byPriority: Record<string, number>;
   };
+}
+
+interface TableOption {
+  id: string;
+  tableNumber: string;
+  name: string | null;
+}
+
+interface StaffOption {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
 }
 
 const ACTIVITY_ICONS: Record<string, typeof Users> = {
@@ -138,9 +152,13 @@ export default function ActivityLogPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [priority, setPriority] = useState("all");
+  const [tableId, setTableId] = useState("all");
+  const [staffId, setStaffId] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [isLive, setIsLive] = useState(false);
+  const [tables, setTables] = useState<TableOption[]>([]);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -153,6 +171,8 @@ export default function ActivityLogPage() {
       if (search) params.set("search", search);
       if (category !== "all") params.set("category", category);
       if (priority !== "all") params.set("priority", priority);
+      if (tableId !== "all") params.set("tableId", tableId);
+      if (staffId !== "all") params.set("staffId", staffId);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
 
@@ -168,9 +188,35 @@ export default function ActivityLogPage() {
     }
   };
 
+  // Fetch tables and staff for dropdown filters
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const [tablesRes, staffRes] = await Promise.all([
+          fetch("/api/tables"),
+          fetch("/api/staff"),
+        ]);
+
+        if (tablesRes.ok) {
+          const tablesData = await tablesRes.json();
+          setTables(tablesData.tables || tablesData || []);
+        }
+
+        if (staffRes.ok) {
+          const staffData = await staffRes.json();
+          setStaff(staffData.staff || staffData || []);
+        }
+      } catch (error) {
+        console.error("Error fetching filter options:", error);
+      }
+    };
+
+    fetchFilters();
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [page, category, priority, dateFrom, dateTo]);
+  }, [page, category, priority, tableId, staffId, dateFrom, dateTo]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -180,7 +226,7 @@ export default function ActivityLogPage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isLive, page, category, priority, dateFrom, dateTo]);
+  }, [isLive, page, category, priority, tableId, staffId, dateFrom, dateTo]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +238,8 @@ export default function ActivityLogPage() {
     setSearch("");
     setCategory("all");
     setPriority("all");
+    setTableId("all");
+    setStaffId("all");
     setDateFrom("");
     setDateTo("");
     setPage(1);
@@ -244,6 +292,12 @@ export default function ActivityLogPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="./activity/sessions">
+            <Button variant="outline" size="sm">
+              <Users className="h-4 w-4 mr-2" />
+              Sessions
+            </Button>
+          </Link>
           <button
             onClick={() => setIsLive(!isLive)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
@@ -315,7 +369,7 @@ export default function ActivityLogPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <form onSubmit={handleSearch} className="lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -354,6 +408,40 @@ export default function ActivityLogPage() {
               {PRIORITY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4">
+            <select
+              value={tableId}
+              onChange={(e) => {
+                setTableId(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">All Tables</option>
+              {tables.map((table) => (
+                <option key={table.id} value={table.id}>
+                  Table {table.tableNumber}{table.name ? ` - ${table.name}` : ""}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={staffId}
+              onChange={(e) => {
+                setStaffId(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">All Staff</option>
+              {staff.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name || member.email} ({member.role})
                 </option>
               ))}
             </select>
@@ -475,7 +563,21 @@ export default function ActivityLogPage() {
                             </span>
                           </td>
                           <td className="py-3 px-2 text-sm">
-                            {log.userName ? (
+                            {log.userName && log.userId ? (
+                              <Link
+                                href={`./activity/staff/${log.userId}`}
+                                className="hover:underline"
+                              >
+                                <div className="font-medium text-blue-600 hover:text-blue-800">
+                                  {log.userName}
+                                </div>
+                                {log.userRole && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {log.userRole}
+                                  </div>
+                                )}
+                              </Link>
+                            ) : log.userName ? (
                               <div>
                                 <div className="font-medium">{log.userName}</div>
                                 {log.userRole && (

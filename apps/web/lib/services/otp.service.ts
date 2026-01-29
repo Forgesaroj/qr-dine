@@ -48,7 +48,7 @@ export async function generateTableOtp(tableId: string): Promise<{
       restaurantId: table.restaurantId,
       otpCode: newOtp,
       generatedAt: new Date(),
-      action: "GENERATED",
+      regeneratedReason: "manual",
     },
   });
 
@@ -92,8 +92,7 @@ export async function changeOtpAfterPayment(
       otpCode: newOtp,
       generatedAt: new Date(),
       sessionId,
-      action: "CHANGED_AFTER_PAYMENT",
-      previousOtp,
+      regeneratedReason: "cleaning_complete",
     },
   });
 
@@ -140,11 +139,10 @@ export async function getOtpHistory(
   Array<{
     id: string;
     otpCode: string;
-    action: string;
-    generatedAt: Date | null;
+    regeneratedReason: string | null;
+    generatedAt: Date;
     usedAt: Date | null;
     sessionId: string | null;
-    previousOtp: string | null;
   }>
 > {
   return prisma.otpHistory.findMany({
@@ -154,11 +152,10 @@ export async function getOtpHistory(
     select: {
       id: true,
       otpCode: true,
-      action: true,
+      regeneratedReason: true,
       generatedAt: true,
       usedAt: true,
       sessionId: true,
-      previousOtp: true,
     },
   });
 }
@@ -177,9 +174,9 @@ export async function recordOtpUsage(
       tableId,
       restaurantId,
       otpCode,
+      generatedAt: new Date(),
       usedAt: new Date(),
       sessionId,
-      action: "USED",
     },
   });
 }
@@ -240,9 +237,7 @@ export async function manuallyRegenerateOtp(
       restaurantId: table.restaurantId,
       otpCode: newOtp,
       generatedAt: new Date(),
-      action: "MANUAL_REGENERATION",
-      previousOtp,
-      regeneratedById,
+      regeneratedReason: "manual",
     },
   });
 

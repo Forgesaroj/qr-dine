@@ -41,6 +41,7 @@ export type PageAccess =
   | "shift-notes"
   | "briefing"
   | "lost-found"
+  | "activity-log"
   | "reports"
   | "settings";
 
@@ -64,6 +65,7 @@ export const rolePageAccess: Record<Role, PageAccess[]> = {
     "shift-notes",
     "briefing",
     "lost-found",
+    "activity-log",
     "reports",
     "settings",
   ],
@@ -85,6 +87,7 @@ export const rolePageAccess: Record<Role, PageAccess[]> = {
     "shift-notes",
     "briefing",
     "lost-found",
+    "activity-log",
     "reports",
     "settings",
   ],
@@ -106,6 +109,7 @@ export const rolePageAccess: Record<Role, PageAccess[]> = {
     "shift-notes",
     "briefing",
     "lost-found",
+    "activity-log",
     "reports",
   ],
   WAITER: ["dashboard", "orders", "billing", "tables", "assistance", "quick-order", "chat", "shift-notes", "briefing", "lost-found"],
@@ -239,6 +243,7 @@ export const pageRoutes: Record<PageAccess, string> = {
   "shift-notes": "/shift-notes",
   briefing: "/briefing",
   "lost-found": "/lost-found",
+  "activity-log": "/reports/activity",
   reports: "/reports",
   settings: "/settings",
 };

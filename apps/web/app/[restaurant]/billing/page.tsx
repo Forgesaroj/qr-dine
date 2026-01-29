@@ -34,6 +34,7 @@ import {
   Phone,
   MapPin,
   Package,
+  FileText,
 } from "lucide-react";
 import { Select } from "@qr-dine/ui";
 import Link from "next/link";
@@ -160,6 +161,15 @@ export default function BillingPage() {
     newBalance: number;
     tierUpgrade: boolean;
     newTier: string | null;
+  } | null>(null);
+
+  // IRD Invoice state
+  const [invoiceCreated, setInvoiceCreated] = useState<{
+    id: string;
+    invoiceNumber: string;
+    fiscalYear: string;
+    invoiceDateBs: string;
+    totalAmount: number;
   } | null>(null);
 
   // Table assignment state
@@ -306,6 +316,7 @@ export default function BillingPage() {
       // Reset loyalty state for new bill
       clearLinkedCustomer();
       setLoyaltyResult(null);
+      setInvoiceCreated(null);
 
       // If bill already has a customer, load their info
       if (data.bill.customer || data.bill.order?.customer) {
@@ -363,6 +374,11 @@ export default function BillingPage() {
       // Store loyalty result for display
       if (data.loyalty) {
         setLoyaltyResult(data.loyalty);
+      }
+
+      // Store invoice info if created
+      if (data.invoice) {
+        setInvoiceCreated(data.invoice);
       }
 
       // Reset form
@@ -459,7 +475,7 @@ export default function BillingPage() {
             ` : ""}
             <p>Date: ${new Date(selectedBill.generatedAt).toLocaleString()}</p>
             ${selectedBill.firstOrderedAt ? `<p>Post Time: ${new Date(selectedBill.firstOrderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ""}
-            ${selectedBill.payments.length > 0 ? `<p>End Time: ${new Date(selectedBill.payments[selectedBill.payments.length - 1].processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ""}
+            ${selectedBill.payments.length > 0 && selectedBill.payments[selectedBill.payments.length - 1] ? `<p>End Time: ${new Date(selectedBill.payments[selectedBill.payments.length - 1]!.processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ""}
           </div>
           <div class="items">
             ${(selectedBill.combinedItems || selectedBill.order.items)
@@ -695,10 +711,10 @@ export default function BillingPage() {
                             <span>Post Time: {new Date(selectedBill.firstOrderedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                         )}
-                        {selectedBill.payments.length > 0 && (
+                        {selectedBill.payments.length > 0 && selectedBill.payments[selectedBill.payments.length - 1] && (
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <UtensilsCrossed className="h-3.5 w-3.5" />
-                            <span>End Time: {new Date(selectedBill.payments[selectedBill.payments.length - 1].processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>End Time: {new Date(selectedBill.payments[selectedBill.payments.length - 1]!.processedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                         )}
                       </div>
@@ -1001,6 +1017,39 @@ export default function BillingPage() {
                           </p>
                         )}
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* IRD Invoice Created */}
+              {invoiceCreated && selectedBill.status === "PAID" && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-6 w-6 text-blue-600" />
+                        <div>
+                          <p className="font-medium text-blue-800">
+                            IRD Invoice Generated
+                          </p>
+                          <p className="text-sm text-blue-600">
+                            Invoice #: {invoiceCreated.invoiceNumber}
+                          </p>
+                          <p className="text-xs text-blue-500">
+                            FY {invoiceCreated.fiscalYear} · {invoiceCreated.invoiceDateBs} (BS)
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                        onClick={() => window.open(`/${restaurant}/invoices/${invoiceCreated.id}`, '_blank')}
+                      >
+                        <Printer className="h-4 w-4 mr-1" />
+                        Print Invoice
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

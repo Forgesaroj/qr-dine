@@ -23,6 +23,12 @@ interface OrderItem {
   specialRequests: string | null;
   kitchenStation: string | null;
   isTakeaway: boolean;
+  // Time tracking
+  sentToKitchenAt: string | null;
+  preparingAt: string | null;
+  readyAt: string | null;
+  expectedPrepTimeMinutes: number | null;
+  createdAt: string;
 }
 
 interface Order {
@@ -149,6 +155,47 @@ export default function KitchenPage() {
     const now = new Date();
     const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
     return diffMins > 15;
+  };
+
+  // Get elapsed time for item in current phase with color coding
+  const getItemElapsedTime = (item: OrderItem): { time: string; color: string; isOverdue: boolean } => {
+    const now = new Date();
+    let startTime: Date | null = null;
+    let expectedMins = item.expectedPrepTimeMinutes || 15; // Default 15 min
+
+    if (item.status === "PREPARING" && item.preparingAt) {
+      startTime = new Date(item.preparingAt);
+    } else if (["PENDING", "SENT_TO_KITCHEN"].includes(item.status) && item.sentToKitchenAt) {
+      startTime = new Date(item.sentToKitchenAt);
+      expectedMins = 5; // 5 min max wait before cooking starts
+    } else if (item.status === "READY" && item.readyAt) {
+      startTime = new Date(item.readyAt);
+      expectedMins = 5; // 5 min max for pickup
+    } else if (item.createdAt) {
+      startTime = new Date(item.createdAt);
+    }
+
+    if (!startTime) return { time: "-", color: "text-gray-500", isOverdue: false };
+
+    const diffMins = Math.floor((now.getTime() - startTime.getTime()) / 60000);
+    const isOverdue = diffMins > expectedMins;
+
+    let color = "text-green-600";
+    if (diffMins >= expectedMins * 0.75) color = "text-yellow-600";
+    if (isOverdue) color = "text-red-600";
+
+    const time = diffMins < 1 ? "<1m" : `${diffMins}m`;
+    return { time, color, isOverdue };
+  };
+
+  // Get prep progress bar percentage
+  const getPrepProgress = (item: OrderItem): number => {
+    if (!item.preparingAt) return 0;
+    const expectedMins = item.expectedPrepTimeMinutes || 15;
+    const now = new Date();
+    const startTime = new Date(item.preparingAt);
+    const diffMins = (now.getTime() - startTime.getTime()) / 60000;
+    return Math.min(100, (diffMins / expectedMins) * 100);
   };
 
   // Group items by status for summary
@@ -283,6 +330,8 @@ export default function KitchenPage() {
                   <div className="space-y-2">
                     {order.items.map((item) => {
                       const nextStatus = getNextItemStatus(item.status);
+                      const elapsed = getItemElapsedTime(item);
+                      const prepProgress = item.status === "PREPARING" ? getPrepProgress(item) : 0;
 
                       // Show packing indicator only for actual takeaway (not phone orders eaten at restaurant)
                       const needsPackaging = item.isTakeaway && (isTakeawayOrder || (!isPhoneOrder && !isTakeawayOrder));
@@ -290,7 +339,7 @@ export default function KitchenPage() {
                       return (
                         <div
                           key={item.id}
-                          className={`p-3 rounded-lg border-2 ${itemStatusColors[item.status]} ${needsPackaging && !isTakeawayOrder ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                          className={`p-3 rounded-lg border-2 ${itemStatusColors[item.status]} ${needsPackaging && !isTakeawayOrder ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${elapsed.isOverdue ? "ring-2 ring-red-500" : ""}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
@@ -319,13 +368,37 @@ export default function KitchenPage() {
                                 </p>
                               )}
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${itemStatusColors[item.status]}`}
-                            >
-                              {itemStatusLabels[item.status]}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${itemStatusColors[item.status]}`}
+                              >
+                                {itemStatusLabels[item.status]}
+                              </Badge>
+                              {/* Time tracking display */}
+                              <span className={`text-xs font-mono font-bold ${elapsed.color}`}>
+                                <Clock className="h-3 w-3 inline mr-1" />
+                                {elapsed.time}
+                              </span>
+                            </div>
                           </div>
+
+                          {/* Prep progress bar for cooking items */}
+                          {item.status === "PREPARING" && (
+                            <div className="mt-2">
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${prepProgress >= 100 ? "bg-red-500" : prepProgress >= 75 ? "bg-yellow-500" : "bg-green-500"}`}
+                                  style={{ width: `${Math.min(prepProgress, 100)}%` }}
+                                />
+                              </div>
+                              {item.expectedPrepTimeMinutes && (
+                                <p className="text-xs text-center mt-1 text-muted-foreground">
+                                  Expected: {item.expectedPrepTimeMinutes}m
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           {/* Item Action Button */}
                           {nextStatus && (

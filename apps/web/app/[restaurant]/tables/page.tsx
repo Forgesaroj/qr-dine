@@ -1,9 +1,9 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, Button } from "@qr-dine/ui";
-import { Plus, QrCode, Edit2, Users, Clock, ShoppingBag, AlertCircle, ChefHat, Receipt, Sparkles } from "lucide-react";
+import { Plus, QrCode, Edit2, Users, Clock, ShoppingBag, AlertCircle, ChefHat, Receipt, Sparkles, Link2 } from "lucide-react";
 import Link from "next/link";
-import { PrintAllQRCodes, TableOTPButton, TableStatusChanger, MarkAsCleanedButton } from "@/components/tables";
+import { PrintAllQRCodes, TableOTPButton, TableStatusChanger, MarkAsCleanedButton, CleaningQueuePanel, MergeTablesButton, UnmergeButton } from "@/components/tables";
 import { getDurationInfo, formatDuration, determineSessionPhase } from "@/lib/session-duration";
 
 const statusColors: Record<string, string> = {
@@ -12,6 +12,8 @@ const statusColors: Record<string, string> = {
   RESERVED: "bg-purple-100 text-purple-800",
   CLEANING: "bg-orange-100 text-orange-800",
   BLOCKED: "bg-gray-100 text-gray-800",
+  BILL_REQUESTED: "bg-yellow-100 text-yellow-800",
+  NEEDS_ATTENTION: "bg-red-100 text-red-800",
 };
 
 const statusLabels: Record<string, string> = {
@@ -20,6 +22,8 @@ const statusLabels: Record<string, string> = {
   RESERVED: "Reserved",
   CLEANING: "Cleaning",
   BLOCKED: "Blocked",
+  BILL_REQUESTED: "Bill Req.",
+  NEEDS_ATTENTION: "Needs Help",
 };
 
 const phaseConfig: Record<string, { label: string; icon: typeof Users }> = {
@@ -46,7 +50,7 @@ export default async function TablesPage({
   // Check if user is manager for detailed view
   const isManager = session.role === "MANAGER" || session.role === "OWNER";
 
-  // Fetch tables with active sessions
+  // Fetch tables with active sessions and merge info
   const tables = await prisma.table.findMany({
     where: { restaurantId: session.restaurantId },
     orderBy: { tableNumber: "asc" },
@@ -74,6 +78,22 @@ export default async function TablesPage({
       },
       _count: {
         select: { orders: true },
+      },
+      // Table merge support
+      mergedWith: {
+        select: {
+          id: true,
+          tableNumber: true,
+          name: true,
+        },
+      },
+      mergedTables: {
+        select: {
+          id: true,
+          tableNumber: true,
+          name: true,
+          capacity: true,
+        },
       },
     },
   });
@@ -103,6 +123,16 @@ export default async function TablesPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <MergeTablesButton
+            tables={tables.map((t: TableWithSession) => ({
+              id: t.id,
+              tableNumber: t.tableNumber,
+              name: t.name,
+              capacity: t.capacity,
+              status: t.status,
+              mergedWithId: t.mergedWithId,
+            }))}
+          />
           <PrintAllQRCodes
             tables={tables.map((t: TableWithSession) => ({
               id: t.id,
@@ -160,6 +190,11 @@ export default async function TablesPage({
           <span>&gt;90m</span>
         </div>
       </div>
+
+      {/* Cleaning Queue Panel - shown when there are tables needing cleaning */}
+      {cleaningCount > 0 && (
+        <CleaningQueuePanel />
+      )}
 
       {/* Tables Grid */}
       {tables.length === 0 ? (
@@ -234,6 +269,22 @@ export default async function TablesPage({
                         </div>
                         {table.name && (
                           <p className="text-sm text-muted-foreground">{table.name}</p>
+                        )}
+                        {/* Merged Table Indicator */}
+                        {table.mergedTables && table.mergedTables.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
+                            <Link2 className="h-3 w-3" />
+                            <span>Merged with T{table.mergedTables.map(t => t.tableNumber).join(", T")}</span>
+                            <span className="text-muted-foreground ml-1">
+                              ({table.capacity + table.mergedTables.reduce((sum, t) => sum + t.capacity, 0)} seats)
+                            </span>
+                          </div>
+                        )}
+                        {table.mergedWithId && table.mergedWith && (
+                          <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
+                            <Link2 className="h-3 w-3" />
+                            <span>Merged with Table {table.mergedWith.tableNumber}</span>
+                          </div>
                         )}
                         {/* OTP Display - show on all tables */}
                         {table.currentOtp && (
@@ -360,6 +411,16 @@ export default async function TablesPage({
                                   <span>Ready for cleaning</span>
                                 </div>
                                 <MarkAsCleanedButton tableId={table.id} />
+                              </div>
+                            )}
+                            {/* Unmerge button for merged tables */}
+                            {(table.mergedTables?.length > 0 || table.mergedWithId) && (
+                              <div className="mt-2">
+                                <UnmergeButton
+                                  tableId={table.id}
+                                  isPrimary={table.mergedTables?.length > 0}
+                                  className="w-full"
+                                />
                               </div>
                             )}
                           </>

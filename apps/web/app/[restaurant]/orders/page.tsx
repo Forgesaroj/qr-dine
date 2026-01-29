@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Users,
   Receipt,
+  HandPlatter,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -23,6 +24,13 @@ interface OrderItem {
   totalPrice: number;
   status: string;
   specialRequests: string | null;
+  // Time tracking
+  createdAt: string;
+  sentToKitchenAt: string | null;
+  preparingAt: string | null;
+  readyAt: string | null;
+  servedAt: string | null;
+  foodPickedAt: string | null;
 }
 
 interface Order {
@@ -79,6 +87,7 @@ export default function OrdersPage() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [rejectingOrder, setRejectingOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [servingItem, setServingItem] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -231,6 +240,54 @@ export default function OrdersPage() {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
+  const formatTime = (dateString: string | null): string => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const getItemStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      PENDING: "bg-yellow-100 text-yellow-800",
+      SENT_TO_KITCHEN: "bg-blue-100 text-blue-800",
+      PREPARING: "bg-orange-100 text-orange-800",
+      READY: "bg-green-100 text-green-800",
+      SERVED: "bg-gray-100 text-gray-800",
+      CANCELLED: "bg-red-100 text-red-800",
+    };
+    const labels: Record<string, string> = {
+      PENDING: "Pending",
+      SENT_TO_KITCHEN: "Queued",
+      PREPARING: "Cooking",
+      READY: "Ready",
+      SERVED: "Served",
+      CANCELLED: "Cancelled",
+    };
+    return { color: colors[status] || "bg-gray-100", label: labels[status] || status };
+  };
+
+  const markItemServed = async (orderId: string, itemId: string) => {
+    setServingItem(itemId);
+    try {
+      const response = await fetch(`/api/orders/${orderId}/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "SERVED" }),
+      });
+
+      if (response.ok) {
+        fetchOrders();
+      }
+    } catch (err) {
+      console.error("Failed to mark item as served:", err);
+    } finally {
+      setServingItem(null);
+    }
+  };
+
   const activeOrders = orders.filter((o) =>
     ["PENDING", "PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "READY"].includes(o.status)
   );
@@ -340,28 +397,93 @@ export default function OrdersPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Order Items */}
-                  <div className="space-y-2">
-                    {order.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start justify-between text-sm"
-                      >
-                        <div>
-                          <span className="font-medium">
-                            {item.quantity}x {item.menuItemName}
-                          </span>
-                          {item.specialRequests && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Note: {item.specialRequests}
-                            </p>
-                          )}
+                  {/* Order Items with Timeline */}
+                  <div className="space-y-3">
+                    {order.items.map((item) => {
+                      const statusBadge = getItemStatusBadge(item.status);
+                      const isReady = item.status === "READY";
+                      const isServing = servingItem === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          className={`p-2 border rounded-lg ${isReady ? "bg-green-50 border-green-200" : "bg-muted/30"}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  {item.quantity}x {item.menuItemName}
+                                </span>
+                                <Badge className={`text-xs ${statusBadge.color}`}>
+                                  {statusBadge.label}
+                                </Badge>
+                              </div>
+                              {item.specialRequests && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Note: {item.specialRequests}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">
+                                Rs. {item.totalPrice.toFixed(2)}
+                              </span>
+                              {isReady && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs bg-green-600 text-white hover:bg-green-700 border-green-600"
+                                  onClick={() => markItemServed(order.id, item.id)}
+                                  disabled={isServing}
+                                >
+                                  <HandPlatter className="h-3 w-3 mr-1" />
+                                  {isServing ? "..." : "Serve"}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          {/* Item Timeline */}
+                          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground overflow-x-auto">
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                              <Clock className="h-3 w-3" />
+                              Ordered: {formatTime(item.createdAt)}
+                            </span>
+                            {item.sentToKitchenAt && (
+                              <>
+                                <span className="text-gray-300">→</span>
+                                <span className="whitespace-nowrap text-blue-600">
+                                  Kitchen: {formatTime(item.sentToKitchenAt)}
+                                </span>
+                              </>
+                            )}
+                            {item.preparingAt && (
+                              <>
+                                <span className="text-gray-300">→</span>
+                                <span className="whitespace-nowrap text-orange-600">
+                                  Cooking: {formatTime(item.preparingAt)}
+                                </span>
+                              </>
+                            )}
+                            {item.readyAt && (
+                              <>
+                                <span className="text-gray-300">→</span>
+                                <span className="whitespace-nowrap text-green-600">
+                                  Ready: {formatTime(item.readyAt)}
+                                </span>
+                              </>
+                            )}
+                            {item.servedAt && (
+                              <>
+                                <span className="text-gray-300">→</span>
+                                <span className="whitespace-nowrap text-gray-600">
+                                  Served: {formatTime(item.servedAt)}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-muted-foreground">
-                          Rs. {item.totalPrice.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Total */}

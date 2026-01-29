@@ -156,7 +156,7 @@ export async function GET(
       }));
 
       // Calculate first ordered and last served times
-      if (sessionOrders.length > 0) {
+      if (sessionOrders.length > 0 && sessionOrders[0]) {
         firstOrderedAt = sessionOrders[0].placedAt;
 
         // Find the last served time across all orders

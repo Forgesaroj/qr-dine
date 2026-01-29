@@ -15,10 +15,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find restaurant
+    // Find restaurant with settings
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug: restaurantSlug },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        restaurantSettings: {
+          select: {
+            qrOrderRequiresConfirmation: true,
+          },
+        },
+      },
     });
 
     if (!restaurant || restaurant.status !== "ACTIVE") {
@@ -95,10 +103,15 @@ export async function POST(request: NextRequest) {
     });
     const orderNumber = `ORD-${String(orderCount + 1).padStart(5, "0")}`;
 
-    // Check if session has guest count set (determines if order needs confirmation)
-    // If no guest count is set, the order needs staff confirmation before going to kitchen
-    const needsConfirmation = !session.guestCount || session.guestCount === 0;
-    const orderStatus = needsConfirmation ? "PENDING_CONFIRMATION" : "CONFIRMED";
+    // Check restaurant setting for QR order confirmation
+    // qrOrderRequiresConfirmation: true = Staff confirms before kitchen sees order
+    // qrOrderRequiresConfirmation: false = Order goes directly to kitchen
+    const qrOrderRequiresConfirmation = restaurant.restaurantSettings?.qrOrderRequiresConfirmation ?? true;
+
+    // Also check if session has guest count set - if no guest count, needs confirmation regardless
+    const noGuestCount = !session.guestCount || session.guestCount === 0;
+    const needsConfirmation = qrOrderRequiresConfirmation || noGuestCount;
+    const orderStatus = needsConfirmation ? "PENDING_CONFIRMATION" : "PENDING";
 
     // Create order
     const order = await prisma.order.create({
@@ -133,8 +146,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // If confirmed (guest count set), update item status to sent to kitchen
-    if (orderStatus === "CONFIRMED") {
+    // If order doesn't need confirmation (goes directly to kitchen), update item status
+    if (!needsConfirmation) {
       await prisma.orderItem.updateMany({
         where: { orderId: order.id },
         data: {

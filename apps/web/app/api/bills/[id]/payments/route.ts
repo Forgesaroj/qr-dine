@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { awardPoints, redeemPoints, awardVisitMilestone } from "@/lib/loyalty";
+import { createInvoiceService, CreateInvoiceData } from "@/lib/services/invoice.service";
 
 // Check if user can process payments (waiters cannot)
 function canProcessPayments(role: string): boolean {
@@ -120,6 +121,7 @@ export async function POST(
 
     // Check if bill is fully paid
     let loyaltyResult = null;
+    let invoiceCreated = null;
 
     if (totalPaid >= bill.totalAmount) {
       // Mark bill as paid
@@ -195,6 +197,115 @@ export async function POST(
           }
         }
       }
+
+      // ═══════════════════════════════════════════════════════════════════════════════
+      // CREATE IRD INVOICE IF ENABLED
+      // ═══════════════════════════════════════════════════════════════════════════════
+      try {
+        // Check if IRD is enabled for this restaurant
+        const restaurantSettings = await prisma.restaurantSettings.findUnique({
+          where: { restaurantId: session.restaurantId },
+        });
+
+        if (restaurantSettings?.irdEnabled) {
+          // Get all items from the bill's session orders or primary order
+          let invoiceItems: { description: string; descriptionLocal?: string; quantity: number; unitPrice: number; menuItemId?: string }[] = [];
+
+          if (bill.sessionId) {
+            // Get all items from session orders
+            const sessionOrders = await prisma.order.findMany({
+              where: {
+                sessionId: bill.sessionId,
+                restaurantId: session.restaurantId,
+                status: "COMPLETED",
+              },
+              include: {
+                items: {
+                  include: {
+                    menuItem: { select: { name: true, nameLocal: true, id: true } },
+                  },
+                },
+              },
+            });
+
+            for (const order of sessionOrders) {
+              for (const item of order.items) {
+                invoiceItems.push({
+                  description: item.menuItemName || item.menuItem?.name || "Item",
+                  descriptionLocal: item.menuItem?.nameLocal || undefined,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  menuItemId: item.menuItemId,
+                });
+              }
+            }
+          } else {
+            // Use primary order items
+            const orderWithItems = await prisma.order.findUnique({
+              where: { id: bill.orderId },
+              include: {
+                items: {
+                  include: {
+                    menuItem: { select: { name: true, nameLocal: true, id: true } },
+                  },
+                },
+              },
+            });
+
+            if (orderWithItems) {
+              for (const item of orderWithItems.items) {
+                invoiceItems.push({
+                  description: item.menuItemName || item.menuItem?.name || "Item",
+                  descriptionLocal: item.menuItem?.nameLocal || undefined,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  menuItemId: item.menuItemId,
+                });
+              }
+            }
+          }
+
+          // Create invoice data
+          const invoiceData: CreateInvoiceData = {
+            restaurantId: session.restaurantId,
+            billId: billId,
+            orderId: bill.orderId,
+            sessionId: bill.sessionId || undefined,
+            buyerName: bill.customer?.name || bill.order?.customer?.name || "Walk-in Customer",
+            buyerPan: undefined, // Can be added via separate flow
+            buyerAddress: undefined,
+            items: invoiceItems,
+            subtotal: bill.subtotal,
+            discountAmount: bill.discountAmount + pointsDiscount,
+            discountReason: pointsDiscount > 0 ? `Loyalty points redeemed (${pointsDiscount} NPR)` : undefined,
+            serviceChargeRate: restaurantSettings.irdIncludeServiceCharge
+              ? Number(restaurantSettings.irdServiceChargeRate || 10)
+              : 0,
+            serviceCharge: restaurantSettings.irdIncludeServiceCharge
+              ? bill.serviceCharge
+              : 0,
+            paymentMethod: method,
+            createdBy: session.userId,
+            createdByName: session.email?.split('@')[0] || "Staff",
+            skipCBMS: true, // Manual sync can be done later
+          };
+
+          const invoiceService = createInvoiceService(session.restaurantId);
+          const invoice = await invoiceService.createInvoice(invoiceData);
+
+          invoiceCreated = {
+            id: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            fiscalYear: invoice.fiscalYear,
+            invoiceDateBs: invoice.invoiceDateBs,
+            totalAmount: Number(invoice.totalAmount),
+          };
+        }
+      } catch (invoiceError) {
+        // Log error but don't fail the payment
+        console.error("Error creating IRD invoice:", invoiceError);
+        // Invoice creation failed but payment still succeeded
+      }
     } else {
       // Update to partially paid
       await prisma.bill.update({
@@ -229,6 +340,7 @@ export async function POST(
       bill: updatedBill,
       loyalty: loyaltyResult,
       pointsDiscount,
+      invoice: invoiceCreated,
     }, { status: 201 });
   } catch (error) {
     console.error("Error processing payment:", error);

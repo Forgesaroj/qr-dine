@@ -31,6 +31,7 @@ import {
   CalendarDays,
   Bell,
   Zap,
+  ScrollText,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -64,6 +65,7 @@ const navigation: NavItem[] = [
   { name: "Shift Notes", href: "/shift-notes", icon: FileText, page: "shift-notes" },
   { name: "Briefing", href: "/briefing", icon: Megaphone, page: "briefing" },
   { name: "Lost & Found", href: "/lost-found", icon: Package, page: "lost-found" },
+  { name: "Activity Log", href: "/reports/activity", icon: ScrollText, page: "activity-log" },
   { name: "Reports", href: "/reports", icon: BarChart3, page: "reports" },
   { name: "Settings", href: "/settings", icon: Settings, page: "settings" },
 ];

@@ -36,6 +36,18 @@ import {
   ChefHat,
   Headphones,
   CreditCard,
+  Timer,
+  Sparkles,
+  AlertTriangle,
+  QrCode,
+  Receipt,
+  FileText,
+  Cloud,
+  Key,
+  Link2,
+  TestTube,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +66,67 @@ interface RestaurantSettings {
   notifyOnPayment?: boolean;
   showEstimatedTime?: boolean;
   allowSpecialInstructions?: boolean;
+}
+
+interface AlertSoundPreferences {
+  soundEnabled: boolean;
+  NEW_ORDER: boolean;
+  ASSISTANCE_REQUEST: boolean;
+  BILL_REQUEST: boolean;
+  SESSION_ALERT: boolean;
+  ORDER_READY: boolean;
+}
+
+interface TableManagementSettings {
+  // Assistance timers
+  assistanceEnabled: boolean;
+  otpHelpTimerMinutes: number;
+  orderHelpTimerMinutes: number;
+  // Duration color thresholds
+  durationGreenMax: number;
+  durationYellowMax: number;
+  durationOrangeMax: number;
+  // Long stay alerts
+  longStayAlertEnabled: boolean;
+  longStayAlertMinutes: number;
+  longStayRepeatMinutes: number;
+  longStayNotifyWaiter: boolean;
+  longStayNotifyManager: boolean;
+  // Cleaning alerts
+  cleaningAlertEnabled: boolean;
+  cleaningAlertMinutes: number;
+  cleaningChecklistEnabled: boolean;
+  // QR Order flow
+  qrOrderRequiresConfirmation: boolean;
+}
+
+interface IRDSettings {
+  irdEnabled: boolean;
+  irdVatNumber: string | null;
+  irdBusinessName: string | null;
+  irdBusinessNameNp: string | null;
+  irdBusinessAddress: string | null;
+  irdBusinessAddressNp: string | null;
+  irdVatRate: number;
+  irdServiceChargeRate: number;
+  irdIncludeServiceCharge: boolean;
+  irdInvoicePrefix: string | null;
+}
+
+interface CBMSSettings {
+  enabled: boolean;
+  apiUrl: string;
+  username: string;
+  password: string;
+  hasPassword: boolean;
+  sellerPan: string;
+  syncMode: "REALTIME" | "BATCH" | "MANUAL";
+  batchInterval: number;
+  maxRetry: number;
+  retryDelay: number;
+  lastSyncAt: string | null;
+  lastSyncStatus: string | null;
+  credentialsValid: boolean;
 }
 
 interface Restaurant {
@@ -149,6 +222,102 @@ export default function SettingsPage() {
     allowSpecialInstructions: true,
   });
 
+  const [tableSettings, setTableSettings] = useState<TableManagementSettings>({
+    assistanceEnabled: true,
+    otpHelpTimerMinutes: 2,
+    orderHelpTimerMinutes: 5,
+    durationGreenMax: 30,
+    durationYellowMax: 60,
+    durationOrangeMax: 90,
+    longStayAlertEnabled: true,
+    longStayAlertMinutes: 90,
+    longStayRepeatMinutes: 30,
+    longStayNotifyWaiter: true,
+    longStayNotifyManager: true,
+    cleaningAlertEnabled: true,
+    cleaningAlertMinutes: 10,
+    cleaningChecklistEnabled: false,
+    qrOrderRequiresConfirmation: true,
+  });
+  const [tableSettingsSaving, setTableSettingsSaving] = useState(false);
+
+  // IRD E-Billing Settings
+  const [irdSettings, setIrdSettings] = useState<IRDSettings>({
+    irdEnabled: false,
+    irdVatNumber: null,
+    irdBusinessName: null,
+    irdBusinessNameNp: null,
+    irdBusinessAddress: null,
+    irdBusinessAddressNp: null,
+    irdVatRate: 13,
+    irdServiceChargeRate: 10,
+    irdIncludeServiceCharge: true,
+    irdInvoicePrefix: null,
+  });
+  const [irdSettingsSaving, setIrdSettingsSaving] = useState(false);
+  const [irdSettingsLoading, setIrdSettingsLoading] = useState(false);
+
+  // CBMS Settings
+  const [cbmsSettings, setCbmsSettings] = useState<CBMSSettings>({
+    enabled: false,
+    apiUrl: "https://cbapi.ird.gov.np",
+    username: "",
+    password: "",
+    hasPassword: false,
+    sellerPan: "",
+    syncMode: "REALTIME",
+    batchInterval: 5,
+    maxRetry: 3,
+    retryDelay: 15,
+    lastSyncAt: null,
+    lastSyncStatus: null,
+    credentialsValid: false,
+  });
+  const [cbmsSettingsSaving, setCbmsSettingsSaving] = useState(false);
+  const [cbmsSettingsLoading, setCbmsSettingsLoading] = useState(false);
+  const [cbmsConfigured, setCbmsConfigured] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Alert sound preferences (stored in localStorage)
+  const [alertSoundPrefs, setAlertSoundPrefs] = useState<AlertSoundPreferences>({
+    soundEnabled: true,
+    NEW_ORDER: true,
+    ASSISTANCE_REQUEST: true,
+    BILL_REQUEST: true,
+    SESSION_ALERT: true,
+    ORDER_READY: false,
+  });
+
+  // Load alert sound preferences from localStorage
+  useEffect(() => {
+    const savedSoundEnabled = localStorage.getItem("managerAlertsSoundEnabled");
+    const savedSoundPrefs = localStorage.getItem("managerAlertsSoundPrefs");
+    if (savedSoundEnabled !== null) {
+      setAlertSoundPrefs(prev => ({ ...prev, soundEnabled: savedSoundEnabled === "true" }));
+    }
+    if (savedSoundPrefs) {
+      try {
+        const prefs = JSON.parse(savedSoundPrefs);
+        setAlertSoundPrefs(prev => ({ ...prev, ...prefs }));
+      } catch {}
+    }
+  }, []);
+
+  // Save alert sound preferences to localStorage
+  const updateAlertSoundPref = (key: keyof AlertSoundPreferences, value: boolean) => {
+    setAlertSoundPrefs(prev => {
+      const updated = { ...prev, [key]: value };
+      if (key === "soundEnabled") {
+        localStorage.setItem("managerAlertsSoundEnabled", String(value));
+      } else {
+        const { soundEnabled, ...prefs } = updated;
+        localStorage.setItem("managerAlertsSoundPrefs", JSON.stringify(prefs));
+      }
+      return updated;
+    });
+  };
+
   // Role permissions state
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionsSaving, setPermissionsSaving] = useState<string | null>(null);
@@ -240,6 +409,217 @@ export default function SettingsPage() {
       alert("Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTableSettings = async () => {
+    setTableSettingsSaving(true);
+    try {
+      const res = await fetch("/api/settings/table-management", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tableSettings),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save");
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error("Error saving table settings:", error);
+      alert("Failed to save table settings");
+    } finally {
+      setTableSettingsSaving(false);
+    }
+  };
+
+  // Fetch table management settings
+  useEffect(() => {
+    if (activeTab === "table-management") {
+      fetchTableSettings();
+    }
+  }, [activeTab]);
+
+  const fetchTableSettings = async () => {
+    try {
+      const res = await fetch("/api/settings/table-management");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setTableSettings({ ...tableSettings, ...data.settings });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching table settings:", error);
+    }
+  };
+
+  // Fetch IRD settings
+  useEffect(() => {
+    if (activeTab === "ird") {
+      fetchIRDSettings();
+    }
+  }, [activeTab]);
+
+  const fetchIRDSettings = async () => {
+    setIrdSettingsLoading(true);
+    try {
+      const res = await fetch("/api/settings/ird");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setIrdSettings({ ...irdSettings, ...data.settings });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching IRD settings:", error);
+    } finally {
+      setIrdSettingsLoading(false);
+    }
+  };
+
+  const handleSaveIRDSettings = async () => {
+    setIrdSettingsSaving(true);
+    try {
+      const res = await fetch("/api/settings/ird", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(irdSettings),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save");
+      }
+
+      const data = await res.json();
+      if (data.settings) {
+        setIrdSettings({ ...irdSettings, ...data.settings });
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Error saving IRD settings:", error);
+      alert(error instanceof Error ? error.message : "Failed to save IRD settings");
+    } finally {
+      setIrdSettingsSaving(false);
+    }
+  };
+
+  // Fetch CBMS settings
+  useEffect(() => {
+    if (activeTab === "cbms") {
+      fetchCBMSSettings();
+    }
+  }, [activeTab]);
+
+  const fetchCBMSSettings = async () => {
+    setCbmsSettingsLoading(true);
+    try {
+      const res = await fetch("/api/settings/cbms");
+      if (res.ok) {
+        const data = await res.json();
+        setCbmsConfigured(data.configured);
+        if (data.config) {
+          setCbmsSettings({
+            enabled: data.config.enabled,
+            apiUrl: data.config.apiUrl,
+            username: data.config.username,
+            password: "",
+            hasPassword: data.config.hasPassword,
+            sellerPan: data.config.sellerPan,
+            syncMode: data.config.syncMode,
+            batchInterval: data.config.batchInterval,
+            maxRetry: data.config.maxRetry,
+            retryDelay: data.config.retryDelay,
+            lastSyncAt: data.config.lastSyncAt,
+            lastSyncStatus: data.config.lastSyncStatus,
+            credentialsValid: data.config.credentialsValid,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching CBMS settings:", error);
+    } finally {
+      setCbmsSettingsLoading(false);
+    }
+  };
+
+  const handleSaveCBMSSettings = async () => {
+    setCbmsSettingsSaving(true);
+    setConnectionTestResult(null);
+    try {
+      const method = cbmsConfigured ? "PATCH" : "POST";
+      const payload: Record<string, unknown> = {
+        enabled: cbmsSettings.enabled,
+        apiUrl: cbmsSettings.apiUrl,
+        username: cbmsSettings.username,
+        sellerPan: cbmsSettings.sellerPan,
+        syncMode: cbmsSettings.syncMode,
+        batchInterval: cbmsSettings.batchInterval,
+        maxRetry: cbmsSettings.maxRetry,
+        retryDelay: cbmsSettings.retryDelay,
+      };
+
+      // Only include password if it was changed
+      if (cbmsSettings.password) {
+        payload.password = cbmsSettings.password;
+      }
+
+      const res = await fetch("/api/settings/cbms", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save");
+      }
+
+      setCbmsConfigured(true);
+      setCbmsSettings({ ...cbmsSettings, hasPassword: true, password: "" });
+      router.refresh();
+    } catch (error) {
+      console.error("Error saving CBMS settings:", error);
+      alert(error instanceof Error ? error.message : "Failed to save CBMS settings");
+    } finally {
+      setCbmsSettingsSaving(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionTestResult(null);
+    try {
+      // For now, just validate the credentials format
+      if (!cbmsSettings.username || (!cbmsSettings.password && !cbmsSettings.hasPassword)) {
+        setConnectionTestResult({
+          success: false,
+          message: "Username and password are required",
+        });
+        return;
+      }
+      if (!cbmsSettings.sellerPan || cbmsSettings.sellerPan.length !== 9) {
+        setConnectionTestResult({
+          success: false,
+          message: "Valid 9-digit PAN number is required",
+        });
+        return;
+      }
+      // Simulate successful validation (actual CBMS test would need server-side implementation)
+      setConnectionTestResult({
+        success: true,
+        message: "Credentials format is valid. Save settings to enable CBMS sync.",
+      });
+    } catch (error) {
+      setConnectionTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Connection test failed",
+      });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -353,17 +733,59 @@ export default function SettingsPage() {
             Save Changes
           </Button>
         )}
+        {activeTab === "table-management" && (
+          <Button onClick={handleSaveTableSettings} disabled={tableSettingsSaving}>
+            {tableSettingsSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Save Changes
+          </Button>
+        )}
+        {activeTab === "ird" && (
+          <Button onClick={handleSaveIRDSettings} disabled={irdSettingsSaving}>
+            {irdSettingsSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Save Changes
+          </Button>
+        )}
+        {activeTab === "cbms" && (
+          <Button onClick={handleSaveCBMSSettings} disabled={cbmsSettingsSaving}>
+            {cbmsSettingsSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {cbmsConfigured ? "Save Changes" : "Create Configuration"}
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-3xl grid-cols-5">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             General
           </TabsTrigger>
+          <TabsTrigger value="table-management" className="flex items-center gap-2">
+            <Timer className="h-4 w-4" />
+            Table Mgmt
+          </TabsTrigger>
+          <TabsTrigger value="ird" className="flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            IRD E-Billing
+          </TabsTrigger>
+          <TabsTrigger value="cbms" className="flex items-center gap-2">
+            <Cloud className="h-4 w-4" />
+            CBMS
+          </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            Role Permissions
+            Permissions
           </TabsTrigger>
         </TabsList>
 
@@ -721,7 +1143,1026 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Manager Alert Sounds */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Manager Alert Sounds
+                </CardTitle>
+                <CardDescription>
+                  Configure sound notifications for the manager alerts panel (saved to this browser)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-medium">Enable Sound Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Master toggle for all alert sounds
+                    </p>
+                  </div>
+                  <Switch
+                    checked={alertSoundPrefs.soundEnabled}
+                    onChange={(checked) => updateAlertSoundPref("soundEnabled", checked)}
+                  />
+                </div>
+
+                {alertSoundPrefs.soundEnabled && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>New Orders</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sound when new orders arrive
+                        </p>
+                      </div>
+                      <Switch
+                        checked={alertSoundPrefs.NEW_ORDER}
+                        onChange={(checked) => updateAlertSoundPref("NEW_ORDER", checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>Assistance Requests</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sound when guests need help
+                        </p>
+                      </div>
+                      <Switch
+                        checked={alertSoundPrefs.ASSISTANCE_REQUEST}
+                        onChange={(checked) => updateAlertSoundPref("ASSISTANCE_REQUEST", checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>Bill Requests</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sound when bill is requested
+                        </p>
+                      </div>
+                      <Switch
+                        checked={alertSoundPrefs.BILL_REQUEST}
+                        onChange={(checked) => updateAlertSoundPref("BILL_REQUEST", checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>Session Alerts</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sound for long stay alerts
+                        </p>
+                      </div>
+                      <Switch
+                        checked={alertSoundPrefs.SESSION_ALERT}
+                        onChange={(checked) => updateAlertSoundPref("SESSION_ALERT", checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>Order Ready</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sound when orders are ready
+                        </p>
+                      </div>
+                      <Switch
+                        checked={alertSoundPrefs.ORDER_READY}
+                        onChange={(checked) => updateAlertSoundPref("ORDER_READY", checked)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <p>
+                    These settings are saved locally in your browser and apply to the Manager Alerts
+                    panel on the dashboard. Critical alerts will play a double-beep sound.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="table-management" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Assistance Timers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Timer className="h-5 w-5" />
+                  Assistance Timers
+                </CardTitle>
+                <CardDescription>
+                  Automatic help notifications for guests
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Auto-Assistance</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Auto-notify staff when guests may need help
+                    </p>
+                  </div>
+                  <Switch
+                    checked={tableSettings.assistanceEnabled}
+                    onChange={(checked) =>
+                      setTableSettings({ ...tableSettings, assistanceEnabled: checked })
+                    }
+                  />
+                </div>
+                {tableSettings.assistanceEnabled && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="otpHelpTimer">OTP Help Timer (min)</Label>
+                        <Input
+                          id="otpHelpTimer"
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={tableSettings.otpHelpTimerMinutes}
+                          onChange={(e) =>
+                            setTableSettings({
+                              ...tableSettings,
+                              otpHelpTimerMinutes: parseInt(e.target.value) || 2,
+                            })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Alert if guest hasn't entered OTP
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="orderHelpTimer">Order Help Timer (min)</Label>
+                        <Input
+                          id="orderHelpTimer"
+                          type="number"
+                          min={1}
+                          max={30}
+                          value={tableSettings.orderHelpTimerMinutes}
+                          onChange={(e) =>
+                            setTableSettings({
+                              ...tableSettings,
+                              orderHelpTimerMinutes: parseInt(e.target.value) || 5,
+                            })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Alert if guest hasn't ordered
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Duration Color Thresholds */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Duration Colors
+                </CardTitle>
+                <CardDescription>
+                  Color coding for session duration on tables page
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="font-medium">Preview:</span>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
+                    <span>&lt;{tableSettings.durationGreenMax}m</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <span>&lt;{tableSettings.durationYellowMax}m</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded-full bg-orange-500" />
+                    <span>&lt;{tableSettings.durationOrangeMax}m</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                    <span>&gt;{tableSettings.durationOrangeMax}m</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="greenMax" className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                      Green Max
+                    </Label>
+                    <Input
+                      id="greenMax"
+                      type="number"
+                      min={10}
+                      max={60}
+                      value={tableSettings.durationGreenMax}
+                      onChange={(e) =>
+                        setTableSettings({
+                          ...tableSettings,
+                          durationGreenMax: parseInt(e.target.value) || 30,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yellowMax" className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                      Yellow Max
+                    </Label>
+                    <Input
+                      id="yellowMax"
+                      type="number"
+                      min={30}
+                      max={120}
+                      value={tableSettings.durationYellowMax}
+                      onChange={(e) =>
+                        setTableSettings({
+                          ...tableSettings,
+                          durationYellowMax: parseInt(e.target.value) || 60,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orangeMax" className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-orange-500" />
+                      Orange Max
+                    </Label>
+                    <Input
+                      id="orangeMax"
+                      type="number"
+                      min={60}
+                      max={180}
+                      value={tableSettings.durationOrangeMax}
+                      onChange={(e) =>
+                        setTableSettings({
+                          ...tableSettings,
+                          durationOrangeMax: parseInt(e.target.value) || 90,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Long Stay Alerts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Long Stay Alerts
+                </CardTitle>
+                <CardDescription>
+                  Notifications for extended guest sessions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Long Stay Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Alert when guests stay beyond threshold
+                    </p>
+                  </div>
+                  <Switch
+                    checked={tableSettings.longStayAlertEnabled}
+                    onChange={(checked) =>
+                      setTableSettings({ ...tableSettings, longStayAlertEnabled: checked })
+                    }
+                  />
+                </div>
+                {tableSettings.longStayAlertEnabled && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="longStayAlert">Alert After (min)</Label>
+                        <Input
+                          id="longStayAlert"
+                          type="number"
+                          min={30}
+                          max={180}
+                          value={tableSettings.longStayAlertMinutes}
+                          onChange={(e) =>
+                            setTableSettings({
+                              ...tableSettings,
+                              longStayAlertMinutes: parseInt(e.target.value) || 90,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="repeatAlert">Repeat Every (min)</Label>
+                        <Input
+                          id="repeatAlert"
+                          type="number"
+                          min={10}
+                          max={60}
+                          value={tableSettings.longStayRepeatMinutes}
+                          onChange={(e) =>
+                            setTableSettings({
+                              ...tableSettings,
+                              longStayRepeatMinutes: parseInt(e.target.value) || 30,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Label>Notify:</Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={tableSettings.longStayNotifyWaiter}
+                            onChange={(e) =>
+                              setTableSettings({
+                                ...tableSettings,
+                                longStayNotifyWaiter: e.target.checked,
+                              })
+                            }
+                            className="rounded"
+                          />
+                          <span className="text-sm">Waiter</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={tableSettings.longStayNotifyManager}
+                            onChange={(e) =>
+                              setTableSettings({
+                                ...tableSettings,
+                                longStayNotifyManager: e.target.checked,
+                              })
+                            }
+                            className="rounded"
+                          />
+                          <span className="text-sm">Manager</span>
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Cleaning Alerts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Cleaning Alerts
+                </CardTitle>
+                <CardDescription>
+                  Notifications for table cleaning delays
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Cleaning Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Alert if table isn't cleaned quickly
+                    </p>
+                  </div>
+                  <Switch
+                    checked={tableSettings.cleaningAlertEnabled}
+                    onChange={(checked) =>
+                      setTableSettings({ ...tableSettings, cleaningAlertEnabled: checked })
+                    }
+                  />
+                </div>
+                {tableSettings.cleaningAlertEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cleaningAlert">Alert After (min)</Label>
+                    <Input
+                      id="cleaningAlert"
+                      type="number"
+                      min={5}
+                      max={30}
+                      value={tableSettings.cleaningAlertMinutes}
+                      onChange={(e) =>
+                        setTableSettings({
+                          ...tableSettings,
+                          cleaningAlertMinutes: parseInt(e.target.value) || 10,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Time before alerting about uncleaned tables
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Cleaning Checklist</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Require checklist completion
+                    </p>
+                  </div>
+                  <Switch
+                    checked={tableSettings.cleaningChecklistEnabled}
+                    onChange={(checked) =>
+                      setTableSettings({ ...tableSettings, cleaningChecklistEnabled: checked })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* QR Order Flow */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5" />
+                  QR Order Flow
+                </CardTitle>
+                <CardDescription>
+                  Configure how orders from QR menu scans are processed
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label>Require Staff Confirmation</Label>
+                    <p className="text-sm text-muted-foreground">
+                      When enabled, QR orders require staff confirmation before going to kitchen.
+                      When disabled, orders go directly to kitchen.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={tableSettings.qrOrderRequiresConfirmation}
+                    onChange={(checked) =>
+                      setTableSettings({ ...tableSettings, qrOrderRequiresConfirmation: checked })
+                    }
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <p className="font-medium mb-1">How it works:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li><strong>ON:</strong> Guest places order → Staff sees "Pending Confirmation" → Staff confirms → Kitchen sees order</li>
+                    <li><strong>OFF:</strong> Guest places order → Kitchen sees order immediately</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ird" className="mt-6">
+          {irdSettingsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* IRD Toggle */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5" />
+                    IRD E-Billing System
+                  </CardTitle>
+                  <CardDescription>
+                    Enable IRD-compliant invoicing for Nepal tax compliance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Enable IRD E-Billing</Label>
+                      <p className="text-sm text-muted-foreground">
+                        When enabled, all bill payments will generate IRD-compliant invoices with sequential numbering and VAT calculation
+                      </p>
+                    </div>
+                    <Switch
+                      checked={irdSettings.irdEnabled}
+                      onChange={(checked) => setIrdSettings({ ...irdSettings, irdEnabled: checked })}
+                    />
+                  </div>
+
+                  {!irdSettings.irdEnabled && (
+                    <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-yellow-800">IRD E-Billing is Disabled</p>
+                          <p className="text-yellow-700">
+                            Bills will be printed normally without IRD invoice creation. To comply with Nepal IRD regulations, enable this option and configure your business details below.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {irdSettings.irdEnabled && (
+                    <div className="text-sm bg-green-50 border border-green-200 p-4 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-green-800">IRD E-Billing is Active</p>
+                          <p className="text-green-700">
+                            All bill payments will automatically generate IRD-compliant VAT invoices with sequential numbering.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Business Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Business Information
+                  </CardTitle>
+                  <CardDescription>
+                    Required for IRD-compliant invoices
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="irdVatNumber">VAT/PAN Number *</Label>
+                    <Input
+                      id="irdVatNumber"
+                      placeholder="9 digit PAN number"
+                      maxLength={9}
+                      value={irdSettings.irdVatNumber || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdVatNumber: e.target.value || null })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your 9-digit PAN registration number
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="irdBusinessName">Business Name (English) *</Label>
+                    <Input
+                      id="irdBusinessName"
+                      placeholder="Registered business name"
+                      value={irdSettings.irdBusinessName || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdBusinessName: e.target.value || null })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="irdBusinessNameNp">Business Name (Nepali)</Label>
+                    <Input
+                      id="irdBusinessNameNp"
+                      placeholder="व्यापारको नाम"
+                      value={irdSettings.irdBusinessNameNp || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdBusinessNameNp: e.target.value || null })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="irdBusinessAddress">Business Address (English) *</Label>
+                    <Input
+                      id="irdBusinessAddress"
+                      placeholder="Full business address"
+                      value={irdSettings.irdBusinessAddress || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdBusinessAddress: e.target.value || null })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="irdBusinessAddressNp">Business Address (Nepali)</Label>
+                    <Input
+                      id="irdBusinessAddressNp"
+                      placeholder="व्यापारको ठेगाना"
+                      value={irdSettings.irdBusinessAddressNp || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdBusinessAddressNp: e.target.value || null })
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* VAT Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    VAT & Service Charge Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure tax rates for IRD invoices
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="irdVatRate">VAT Rate (%)</Label>
+                      <Input
+                        id="irdVatRate"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        value={irdSettings.irdVatRate}
+                        onChange={(e) =>
+                          setIrdSettings({
+                            ...irdSettings,
+                            irdVatRate: parseFloat(e.target.value) || 13,
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Nepal standard VAT is 13%
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="irdServiceChargeRate">Service Charge (%)</Label>
+                      <Input
+                        id="irdServiceChargeRate"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        value={irdSettings.irdServiceChargeRate}
+                        onChange={(e) =>
+                          setIrdSettings({
+                            ...irdSettings,
+                            irdServiceChargeRate: parseFloat(e.target.value) || 10,
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Typically 10% for restaurants
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Include Service Charge</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Add service charge to invoices
+                      </p>
+                    </div>
+                    <Switch
+                      checked={irdSettings.irdIncludeServiceCharge}
+                      onChange={(checked) =>
+                        setIrdSettings({ ...irdSettings, irdIncludeServiceCharge: checked })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="irdInvoicePrefix">Invoice Number Prefix</Label>
+                    <Input
+                      id="irdInvoicePrefix"
+                      placeholder="e.g., KTM for Kathmandu"
+                      maxLength={10}
+                      value={irdSettings.irdInvoicePrefix || ""}
+                      onChange={(e) =>
+                        setIrdSettings({ ...irdSettings, irdInvoicePrefix: e.target.value || null })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional prefix for invoice numbers (e.g., 2081-KTM-00001)
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    About IRD E-Billing
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground space-y-3">
+                    <p>
+                      IRD (Inland Revenue Department) E-Billing is the electronic billing system mandated by
+                      the Nepal government for VAT-registered businesses. When enabled:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Sequential invoice numbers are generated automatically (e.g., 2081-KTM-00001)</li>
+                      <li>Invoices include both Bikram Sambat (BS) and AD dates</li>
+                      <li>VAT is calculated at the configured rate (default 13%)</li>
+                      <li>Service charge is itemized separately if enabled</li>
+                      <li>Total amount is shown in words (in Nepali Rupees)</li>
+                      <li>All invoice data is stored for IRD compliance reporting</li>
+                    </ul>
+                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mt-4">
+                      <p className="text-blue-800">
+                        <strong>CBMS Integration:</strong> To sync invoices with IRD's Central Billing Monitoring System (CBMS),
+                        additional CBMS API credentials must be configured by the system administrator.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="cbms" className="mt-6">
+          {cbmsSettingsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* CBMS Status */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Cloud className="h-5 w-5" />
+                    Central Billing Monitoring System (CBMS)
+                    {cbmsConfigured ? (
+                      cbmsSettings.enabled ? (
+                        <Badge className="bg-green-100 text-green-700 ml-2">Enabled</Badge>
+                      ) : (
+                        <Badge className="bg-yellow-100 text-yellow-700 ml-2">Configured - Disabled</Badge>
+                      )
+                    ) : (
+                      <Badge className="bg-gray-100 text-gray-700 ml-2">Not Configured</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Configure CBMS integration to sync invoices with IRD's Central Billing Monitoring System
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Enable CBMS Sync</Label>
+                      <p className="text-sm text-muted-foreground">
+                        When enabled, invoices will be automatically synced to IRD's CBMS system
+                      </p>
+                    </div>
+                    <Switch
+                      checked={cbmsSettings.enabled}
+                      onChange={(checked) => setCbmsSettings({ ...cbmsSettings, enabled: checked })}
+                      disabled={!cbmsConfigured}
+                    />
+                  </div>
+
+                  {cbmsConfigured && cbmsSettings.lastSyncAt && (
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-gray-500">Last Sync:</span>
+                      <span>{new Date(cbmsSettings.lastSyncAt).toLocaleString()}</span>
+                      {cbmsSettings.lastSyncStatus && (
+                        <Badge variant={cbmsSettings.credentialsValid ? "default" : "destructive"}>
+                          {cbmsSettings.lastSyncStatus}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* API Credentials */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    API Credentials
+                  </CardTitle>
+                  <CardDescription>
+                    Your Taxpayer Portal credentials for CBMS API
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cbmsUsername">Username (Taxpayer Portal UserID) *</Label>
+                    <Input
+                      id="cbmsUsername"
+                      placeholder="Your Taxpayer Portal username"
+                      value={cbmsSettings.username}
+                      onChange={(e) =>
+                        setCbmsSettings({ ...cbmsSettings, username: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cbmsPassword">
+                      Password *
+                      {cbmsSettings.hasPassword && (
+                        <span className="text-xs text-green-600 ml-2">(saved - enter new to change)</span>
+                      )}
+                    </Label>
+                    <Input
+                      id="cbmsPassword"
+                      type="password"
+                      placeholder={cbmsSettings.hasPassword ? "••••••••" : "Enter password"}
+                      value={cbmsSettings.password}
+                      onChange={(e) =>
+                        setCbmsSettings({ ...cbmsSettings, password: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your Taxpayer Portal password (same as IRD login)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cbmsSellerPan">Seller PAN Number *</Label>
+                    <Input
+                      id="cbmsSellerPan"
+                      placeholder="9-digit PAN number"
+                      maxLength={9}
+                      value={cbmsSettings.sellerPan}
+                      onChange={(e) =>
+                        setCbmsSettings({ ...cbmsSettings, sellerPan: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your 9-digit PAN registration number
+                    </p>
+                  </div>
+
+                  {/* Test Connection Button */}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleTestConnection}
+                      disabled={testingConnection}
+                      className="w-full"
+                    >
+                      {testingConnection ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <TestTube className="h-4 w-4 mr-2" />
+                      )}
+                      Validate Credentials
+                    </Button>
+                    {connectionTestResult && (
+                      <div
+                        className={cn(
+                          "mt-2 p-3 rounded-lg text-sm flex items-start gap-2",
+                          connectionTestResult.success
+                            ? "bg-green-50 text-green-700"
+                            : "bg-red-50 text-red-700"
+                        )}
+                      >
+                        {connectionTestResult.success ? (
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        )}
+                        {connectionTestResult.message}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sync Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="h-5 w-5" />
+                    Sync Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure how invoices are synced to CBMS
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cbmsApiUrl">API URL</Label>
+                    <select
+                      id="cbmsApiUrl"
+                      className="w-full border rounded-md px-3 py-2"
+                      value={cbmsSettings.apiUrl}
+                      onChange={(e) =>
+                        setCbmsSettings({ ...cbmsSettings, apiUrl: e.target.value })
+                      }
+                    >
+                      <option value="https://cbapi.ird.gov.np">Production (cbapi.ird.gov.np)</option>
+                      <option value="http://202.166.207.75:9050">Test Environment</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Use Test Environment for development, Production for live
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cbmsSyncMode">Sync Mode</Label>
+                    <select
+                      id="cbmsSyncMode"
+                      className="w-full border rounded-md px-3 py-2"
+                      value={cbmsSettings.syncMode}
+                      onChange={(e) =>
+                        setCbmsSettings({
+                          ...cbmsSettings,
+                          syncMode: e.target.value as "REALTIME" | "BATCH" | "MANUAL",
+                        })
+                      }
+                    >
+                      <option value="REALTIME">Real-time (sync immediately)</option>
+                      <option value="BATCH">Batch (sync periodically)</option>
+                      <option value="MANUAL">Manual (sync on demand)</option>
+                    </select>
+                  </div>
+                  {cbmsSettings.syncMode === "BATCH" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="cbmsBatchInterval">Batch Interval (minutes)</Label>
+                      <Input
+                        id="cbmsBatchInterval"
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={cbmsSettings.batchInterval}
+                        onChange={(e) =>
+                          setCbmsSettings({
+                            ...cbmsSettings,
+                            batchInterval: parseInt(e.target.value) || 5,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cbmsMaxRetry">Max Retries</Label>
+                      <Input
+                        id="cbmsMaxRetry"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={cbmsSettings.maxRetry}
+                        onChange={(e) =>
+                          setCbmsSettings({
+                            ...cbmsSettings,
+                            maxRetry: parseInt(e.target.value) || 3,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cbmsRetryDelay">Retry Delay (min)</Label>
+                      <Input
+                        id="cbmsRetryDelay"
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={cbmsSettings.retryDelay}
+                        onChange={(e) =>
+                          setCbmsSettings({
+                            ...cbmsSettings,
+                            retryDelay: parseInt(e.target.value) || 15,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    About CBMS Integration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground space-y-3">
+                    <p>
+                      CBMS (Central Billing Monitoring System) is IRD's centralized platform for monitoring
+                      business transactions. When configured:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Invoices are automatically synced to IRD after creation</li>
+                      <li>Failed syncs are retried based on your configuration</li>
+                      <li>All sync attempts are logged for audit purposes</li>
+                      <li>CBMS status is visible in the IRD Reports section</li>
+                    </ul>
+                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mt-4">
+                      <p className="text-blue-800">
+                        <strong>Important:</strong> CBMS credentials are the same as your Taxpayer Portal login.
+                        If you change your Taxpayer Portal password, you must update it here as well.
+                      </p>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                      <p className="text-yellow-800">
+                        <strong>Requirements:</strong> Real-time CBMS sync is mandatory for businesses
+                        with annual turnover exceeding NPR 25 Crore. Others can use batch sync.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="permissions" className="mt-6">

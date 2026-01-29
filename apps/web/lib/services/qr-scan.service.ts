@@ -136,9 +136,9 @@ export async function markOrderPlaced(scanEventId: string): Promise<QrScanEvent>
 }
 
 /**
- * Mark OTP help notification sent
+ * Mark OTP help notification sent for a scan event
  */
-export async function markOtpHelpNotified(scanEventId: string): Promise<QrScanEvent> {
+export async function markScanOtpHelpNotified(scanEventId: string): Promise<QrScanEvent> {
   return prisma.qrScanEvent.update({
     where: { id: scanEventId },
     data: {

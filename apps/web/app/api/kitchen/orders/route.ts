@@ -54,6 +54,12 @@ export async function GET() {
             specialRequests: true,
             kitchenStation: true,
             isTakeaway: true,
+            // Time tracking fields
+            sentToKitchenAt: true,
+            preparingAt: true,
+            readyAt: true,
+            expectedPrepTimeMinutes: true,
+            createdAt: true,
           },
           orderBy: {
             createdAt: "asc",

@@ -78,6 +78,8 @@ export default function GuestOrderPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [requestingBill, setRequestingBill] = useState(false);
+  const [billRequested, setBillRequested] = useState(false);
 
   const fetchOrder = async () => {
     if (!orderId) {
@@ -112,8 +114,30 @@ export default function GuestOrderPage() {
     }
   };
 
+  // Check for existing bill request
+  const checkExistingBillRequest = async () => {
+    if (!session?.sessionId) return;
+    try {
+      const response = await fetch(`/api/guest/assistance?sessionId=${session.sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const hasBillRequest = data.requests?.some(
+          (r: { type: string; status: string }) =>
+            r.type === "BILL_REQUEST" &&
+            ["PENDING", "NOTIFIED", "ACKNOWLEDGED", "IN_PROGRESS"].includes(r.status)
+        );
+        if (hasBillRequest) {
+          setBillRequested(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking bill request:", error);
+    }
+  };
+
   useEffect(() => {
     fetchOrder();
+    checkExistingBillRequest();
     // Auto-refresh every 15 seconds
     const interval = setInterval(fetchOrder, 15000);
     return () => clearInterval(interval);
@@ -122,6 +146,39 @@ export default function GuestOrderPage() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchOrder();
+  };
+
+  const handleRequestBill = async () => {
+    if (!session?.sessionId || requestingBill || billRequested) return;
+
+    setRequestingBill(true);
+    try {
+      const response = await fetch("/api/guest/assistance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          type: "BILL_REQUEST",
+        }),
+      });
+
+      if (response.ok) {
+        setBillRequested(true);
+      } else {
+        const data = await response.json();
+        // If there's already a pending request, still show as requested
+        if (data.error?.includes("already have a pending request")) {
+          setBillRequested(true);
+        } else {
+          alert(data.error || "Failed to request bill. Please try again.");
+        }
+      }
+    } catch (error) {
+      console.error("Error requesting bill:", error);
+      alert("Failed to request bill. Please try again.");
+    } finally {
+      setRequestingBill(false);
+    }
   };
 
   const getTimeAgo = (dateString: string): string => {
@@ -317,16 +374,23 @@ export default function GuestOrderPage() {
               <Receipt className="mr-2 h-4 w-4" />
               Bill Generated
             </Button>
+          ) : billRequested ? (
+            <Button className="flex-1 bg-green-600 hover:bg-green-600" disabled>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Bill Requested
+            </Button>
           ) : (
             <Button
               variant="outline"
               className="flex-1"
-              onClick={() => {
-                // TODO: Implement request bill functionality
-                alert("A waiter will bring your bill shortly.");
-              }}
+              onClick={handleRequestBill}
+              disabled={requestingBill || !session?.sessionId}
             >
-              <Receipt className="mr-2 h-4 w-4" />
+              {requestingBill ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Receipt className="mr-2 h-4 w-4" />
+              )}
               Request Bill
             </Button>
           )}

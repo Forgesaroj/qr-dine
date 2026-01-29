@@ -3,3 +3,7 @@ export { TableOTPButton } from "./TableOTPButton";
 export { TableSessionCard } from "./TableSessionCard";
 export { TableStatusChanger } from "./TableStatusChanger";
 export { MarkAsCleanedButton } from "./MarkAsCleanedButton";
+export { CleaningQueuePanel } from "./CleaningQueuePanel";
+export { MergeTablesDialog } from "./MergeTablesDialog";
+export { UnmergeButton } from "./UnmergeButton";
+export { MergeTablesButton } from "./TablesPageClient";

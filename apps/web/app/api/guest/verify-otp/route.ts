@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { findRecentScanForTable, markOtpEntered, linkScanToSession } from "@/lib/services/qr-scan.service";
 
 // POST verify OTP and create session
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { restaurant: restaurantSlug, table: tableId, otp, deviceInfo } = body;
+    const { restaurant: restaurantSlug, table: tableId, otp, deviceInfo, scanEventId, deviceFingerprint } = body;
 
     if (!restaurantSlug || !tableId || !otp) {
       return NextResponse.json(
@@ -45,8 +46,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Find the scan event for tracking attempts
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || undefined;
+    let scanEvent = scanEventId
+      ? await prisma.qrScanEvent.findUnique({ where: { id: scanEventId } })
+      : await findRecentScanForTable(table.id, deviceFingerprint, ipAddress);
+
     // Verify OTP (no time-based expiry - OTP is valid until regenerated)
     if (!table.currentOtp || table.currentOtp !== otp) {
+      // Track failed OTP attempt
+      if (scanEvent) {
+        await markOtpEntered(scanEvent.id, false);
+      }
       return NextResponse.json(
         { error: "Invalid OTP. Please check and try again." },
         { status: 400 }
@@ -54,6 +65,11 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
+
+    // Track successful OTP entry
+    if (scanEvent) {
+      await markOtpEntered(scanEvent.id, true);
+    }
 
     // Check for existing active session (may have been created by qr-scan tracking)
     let session = await prisma.tableSession.findFirst({
@@ -121,6 +137,11 @@ export async function POST(request: NextRequest) {
         sessionId: session.id,
       },
     });
+
+    // Link scan event to session
+    if (scanEvent && !scanEvent.sessionId) {
+      await linkScanToSession(scanEvent.id, session.id);
+    }
 
     // Resolve any pending OTP help alerts for this session
     await prisma.sessionAlert.updateMany({

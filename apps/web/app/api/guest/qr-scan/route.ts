@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { recordQrScan } from "@/lib/services/qr-scan.service";
 
 /**
  * POST /api/guest/qr-scan
  * Track when a guest scans the QR code (before OTP entry)
  * This enables the 2-minute OTP help timer per spec
+ *
+ * Per SESSION_FLOW_SPEC.md - creates QrScanEvent for tracking
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tableId, restaurantId, deviceInfo } = body;
+    const { tableId, restaurantId, deviceInfo, deviceFingerprint, ipAddress, userAgent } = body;
 
     if (!tableId || !restaurantId) {
       return NextResponse.json(
@@ -41,17 +44,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a preliminary session record to track QR scan
-    // This will be converted to a full session when OTP is verified
-    // Or check if there's already an active session
+    const now = new Date();
+
+    // Create QrScanEvent for analytics and help timer tracking
+    const scanEvent = await recordQrScan({
+      restaurantId,
+      tableId,
+      deviceFingerprint: deviceFingerprint || deviceInfo?.fingerprint,
+      ipAddress: ipAddress || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || undefined,
+      userAgent: userAgent || request.headers.get("user-agent") || undefined,
+    });
+
+    // Check for existing active session
     const existingSession = await prisma.tableSession.findFirst({
       where: {
         tableId,
         status: "ACTIVE",
       },
     });
-
-    const now = new Date();
 
     if (existingSession) {
       // Update existing session with scan info if not already scanned
@@ -65,9 +75,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Link scan event to existing session
+      await prisma.qrScanEvent.update({
+        where: { id: scanEvent.id },
+        data: { sessionId: existingSession.id },
+      });
+
       return NextResponse.json({
         success: true,
         sessionId: existingSession.id,
+        scanEventId: scanEvent.id,
         scannedAt: existingSession.qrScannedAt || now,
         table: {
           id: table.id,
@@ -97,12 +114,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Schedule OTP help alert (will be processed by background job)
-    // For now, we just track the scan time and let the polling check for help needs
+    // Link scan event to new session
+    await prisma.qrScanEvent.update({
+      where: { id: scanEvent.id },
+      data: { sessionId: newSession.id },
+    });
 
     return NextResponse.json({
       success: true,
       sessionId: newSession.id,
+      scanEventId: scanEvent.id,
       scannedAt: now,
       table: {
         id: table.id,

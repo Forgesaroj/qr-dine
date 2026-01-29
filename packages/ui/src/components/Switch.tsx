@@ -4,18 +4,28 @@ import * as React from "react";
 
 import { cn } from "../lib/utils";
 
-export interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> {
+export interface SwitchProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange"> {
   label?: string;
   description?: string;
+  checked?: boolean;
   onChange?: (checked: boolean) => void;
 }
 
-const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
-  ({ className, label, description, onChange, checked, id, ...props }, ref) => {
+const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
+  ({ className, label, description, onChange, checked, disabled, id, ...props }, ref) => {
     const switchId = id || React.useId();
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange?.(e.target.checked);
+    const handleClick = () => {
+      if (disabled) return;
+      onChange?.(!checked);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (disabled) return;
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        onChange?.(!checked);
+      }
     };
 
     return (
@@ -35,33 +45,29 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
             )}
           </div>
         )}
-        <div className="relative">
-          <input
-            type="checkbox"
-            id={switchId}
-            role="switch"
-            aria-checked={checked}
-            className="peer sr-only"
-            ref={ref}
-            checked={checked}
-            onChange={handleChange}
-            {...props}
-          />
+        <button
+          type="button"
+          role="switch"
+          id={switchId}
+          aria-checked={checked}
+          disabled={disabled}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            "relative h-6 w-11 cursor-pointer rounded-full border-2 border-transparent bg-input transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+            checked && "bg-primary",
+            className
+          )}
+          ref={ref}
+          {...props}
+        >
           <div
             className={cn(
-              "h-6 w-11 cursor-pointer rounded-full border-2 border-transparent bg-input transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
-              checked && "bg-primary",
-              className
+              "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
+              checked ? "translate-x-5" : "translate-x-0"
             )}
-          >
-            <div
-              className={cn(
-                "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                checked ? "translate-x-5" : "translate-x-0"
-              )}
-            />
-          </div>
-        </div>
+          />
+        </button>
       </div>
     );
   }

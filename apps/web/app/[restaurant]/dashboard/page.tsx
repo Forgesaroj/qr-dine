@@ -13,6 +13,8 @@ import {
   QrCode,
 } from "lucide-react";
 import Link from "next/link";
+import { LiveActivityFeed } from "../components/LiveActivityFeed";
+import { ManagerAlertsPanel } from "@/components/dashboard/ManagerAlertsPanel";
 
 export default async function DashboardPage({
   params,
@@ -215,7 +217,14 @@ export default async function DashboardPage({
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Manager Alerts Panel - Only for managers/owners */}
+      {(session.role === "MANAGER" || session.role === "OWNER" || session.role === "ADMIN") && (
+        <div className="mb-6">
+          <ManagerAlertsPanel />
+        </div>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Quick Actions */}
         <Card>
           <CardHeader>
@@ -306,6 +315,9 @@ export default async function DashboardPage({
             )}
           </CardContent>
         </Card>
+
+        {/* Live Activity Feed */}
+        <LiveActivityFeed />
       </div>
     </div>
   );

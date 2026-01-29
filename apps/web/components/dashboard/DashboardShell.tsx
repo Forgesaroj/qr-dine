@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileSidebar } from "./MobileSidebar";
+import { QuickAccessToolbar } from "./QuickAccessToolbar";
 import { NotificationProvider } from "@/components/notifications";
 
 interface DashboardShellProps {
@@ -48,6 +49,9 @@ export function DashboardShell({
           restaurantName={restaurantName}
           onMenuClick={() => setSidebarOpen(true)}
         />
+
+        {/* Quick Access Toolbar */}
+        <QuickAccessToolbar restaurantSlug={restaurantSlug} />
 
         <main className="py-6">
           <div className="px-4 sm:px-6 lg:px-8">{children}</div>
