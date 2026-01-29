@@ -24,6 +24,7 @@ import {
   Building2,
   Calendar,
   ArrowLeft,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -45,6 +46,35 @@ interface SalesRegisterEntry {
   totalAmount: number;
   status: string;
   cbmsSynced: boolean;
+  // Edit tracking
+  isEdited: boolean;
+  editCount: number;
+  // Complimentary tracking
+  hasComplimentaryItems: boolean;
+  complimentaryAmount: number;
+  // Bill discount
+  billDiscountAmount: number;
+  billDiscountReason: string | null;
+  remarks: string;
+}
+
+interface PurchaseRegisterEntry {
+  sn: number;
+  purchaseNumber: string;
+  vendorInvoiceNumber: string | null;
+  purchaseDateBs: string;
+  purchaseDateAd: string;
+  vendorName: string;
+  vendorPan: string | null;
+  totalPurchase: number;
+  nonVatPurchase: number;
+  importPurchase: number;
+  capitalGoods: number;
+  vatablePurchase: number;
+  vatAmount: number;
+  grandTotal: number;
+  status: string;
+  paymentStatus: string;
 }
 
 interface SalesRegisterSummary {
@@ -58,6 +88,28 @@ interface SalesRegisterSummary {
   grandTotal: number;
   cbmsSyncedCount: number;
   cbmsPendingCount: number;
+  // Edit tracking
+  totalEditedBills: number;
+  totalEditCount: number;
+  // Complimentary
+  totalComplimentaryAmount: number;
+  billsWithComplimentary: number;
+  // Bill discount
+  totalBillDiscount: number;
+}
+
+interface PurchaseRegisterSummary {
+  totalEntries: number;
+  totalPurchaseAmount: number;
+  totalNonVatPurchase: number;
+  totalImportPurchase: number;
+  totalCapitalGoods: number;
+  totalVatablePurchase: number;
+  totalVatAmount: number;
+  grandTotal: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  totalPartiallyPaid: number;
 }
 
 interface SalesRegisterData {
@@ -70,6 +122,21 @@ interface SalesRegisterData {
   };
   entries: SalesRegisterEntry[];
   summary: SalesRegisterSummary;
+}
+
+interface PurchaseRegisterData {
+  header: {
+    reportTitle: string;
+    reportTitleNp: string;
+    restaurantName: string;
+    restaurantAddress: string;
+    buyerPan: string;
+    fiscalYear: string;
+    fiscalYearDisplay: string;
+    generatedAtBs: string;
+  };
+  entries: PurchaseRegisterEntry[];
+  summary: PurchaseRegisterSummary;
 }
 
 interface MonthlySummary {
@@ -135,7 +202,7 @@ interface CBMSStatusData {
   fiscalYear: string;
 }
 
-type TabType = "sales-register" | "vat-report" | "cbms-status";
+type TabType = "sales-register" | "purchase-register" | "vat-report" | "cbms-status";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -151,6 +218,7 @@ export default function IRDReportsPage() {
 
   // Data states
   const [salesRegisterData, setSalesRegisterData] = useState<SalesRegisterData | null>(null);
+  const [purchaseRegisterData, setPurchaseRegisterData] = useState<PurchaseRegisterData | null>(null);
   const [vatReportData, setVatReportData] = useState<VatReportData | null>(null);
   const [cbmsStatusData, setCbmsStatusData] = useState<CBMSStatusData | null>(null);
 
@@ -170,6 +238,13 @@ export default function IRDReportsPage() {
         if (res.ok) {
           const data = await res.json();
           setSalesRegisterData(data);
+          if (!fiscalYear) setFiscalYear(data.header.fiscalYear);
+        }
+      } else if (activeTab === "purchase-register") {
+        const res = await fetch(`/api/reports/ird/purchase-register${yearParam}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPurchaseRegisterData(data);
           if (!fiscalYear) setFiscalYear(data.header.fiscalYear);
         }
       } else if (activeTab === "vat-report") {
@@ -198,6 +273,8 @@ export default function IRDReportsPage() {
 
     if (activeTab === "sales-register") {
       url = `/api/reports/ird/sales-register?${yearParam}format=${format}`;
+    } else if (activeTab === "purchase-register") {
+      url = `/api/reports/ird/purchase-register?${yearParam}format=${format}`;
     } else if (activeTab === "vat-report") {
       url = `/api/reports/ird/vat?${yearParam}type=monthly&format=${format}`;
     }
@@ -251,6 +328,7 @@ export default function IRDReportsPage() {
 
   const tabs = [
     { id: "sales-register" as TabType, label: "Sales Register", icon: Receipt },
+    { id: "purchase-register" as TabType, label: "Purchase Register", icon: ShoppingCart },
     { id: "vat-report" as TabType, label: "VAT Report", icon: TrendingUp },
     { id: "cbms-status" as TabType, label: "CBMS Status", icon: RefreshCw },
   ];
@@ -323,6 +401,9 @@ export default function IRDReportsPage() {
         <>
           {activeTab === "sales-register" && salesRegisterData && (
             <SalesRegisterTab data={salesRegisterData} formatCurrency={formatCurrency} />
+          )}
+          {activeTab === "purchase-register" && purchaseRegisterData && (
+            <PurchaseRegisterTab data={purchaseRegisterData} formatCurrency={formatCurrency} />
           )}
           {activeTab === "vat-report" && vatReportData && (
             <VatReportTab data={vatReportData} formatCurrency={formatCurrency} />
@@ -477,6 +558,152 @@ function SalesRegisterTab({
                     <td className="p-2 text-right">{formatCurrency(data.summary.totalVat)}</td>
                     <td className="p-2 text-right">{formatCurrency(data.summary.grandTotal)}</td>
                     <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PURCHASE REGISTER TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function PurchaseRegisterTab({
+  data,
+  formatCurrency,
+}: {
+  data: PurchaseRegisterData;
+  formatCurrency: (amount: number) => string;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Total Entries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.summary.totalEntries}</div>
+            <p className="text-xs text-gray-500">
+              {data.summary.totalPaid} paid, {data.summary.totalUnpaid} unpaid
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Taxable Purchase</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(data.summary.totalVatablePurchase)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">VAT (Input Tax)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(data.summary.totalVatAmount)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Grand Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(data.summary.grandTotal)}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Payment Status */}
+      <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+        <span className="text-sm font-medium">Payment Status:</span>
+        <span className="flex items-center gap-1 text-sm text-green-600">
+          <CheckCircle2 className="h-4 w-4" />
+          {data.summary.totalPaid} paid
+        </span>
+        {data.summary.totalUnpaid > 0 && (
+          <span className="flex items-center gap-1 text-sm text-red-600">
+            <XCircle className="h-4 w-4" />
+            {data.summary.totalUnpaid} unpaid
+          </span>
+        )}
+        {data.summary.totalPartiallyPaid > 0 && (
+          <span className="flex items-center gap-1 text-sm text-yellow-600">
+            <Clock className="h-4 w-4" />
+            {data.summary.totalPartiallyPaid} partial
+          </span>
+        )}
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Purchase Register (Annex 5) - खरिद खाता</CardTitle>
+          <CardDescription>
+            {data.header.restaurantName} | PAN: {data.header.buyerPan} | FY: {data.header.fiscalYearDisplay}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="text-left p-2">S.N.</th>
+                  <th className="text-left p-2">Invoice No.</th>
+                  <th className="text-left p-2">Date (BS)</th>
+                  <th className="text-left p-2">Vendor</th>
+                  <th className="text-left p-2">PAN</th>
+                  <th className="text-right p-2">Total</th>
+                  <th className="text-right p-2">Taxable</th>
+                  <th className="text-right p-2">VAT 13%</th>
+                  <th className="text-center p-2">Payment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.entries.map((entry) => (
+                  <tr key={entry.purchaseNumber} className="border-b">
+                    <td className="p-2">{entry.sn}</td>
+                    <td className="p-2 font-mono text-xs">{entry.vendorInvoiceNumber || entry.purchaseNumber}</td>
+                    <td className="p-2">{entry.purchaseDateBs}</td>
+                    <td className="p-2">{entry.vendorName}</td>
+                    <td className="p-2">{entry.vendorPan || "-"}</td>
+                    <td className="p-2 text-right">{formatCurrency(entry.totalPurchase)}</td>
+                    <td className="p-2 text-right">{formatCurrency(entry.vatablePurchase)}</td>
+                    <td className="p-2 text-right">{formatCurrency(entry.vatAmount)}</td>
+                    <td className="p-2 text-center">
+                      {entry.paymentStatus === "PAID" ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</span>
+                      ) : entry.paymentStatus === "PARTIALLY_PAID" ? (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Partial</span>
+                      ) : (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Unpaid</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {data.entries.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-gray-500">
+                      No purchases found for this fiscal year
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {data.entries.length > 0 && (
+                <tfoot className="bg-gray-50 font-medium">
+                  <tr>
+                    <td colSpan={5} className="p-2 text-right">Totals:</td>
+                    <td className="p-2 text-right">{formatCurrency(data.summary.totalPurchaseAmount)}</td>
+                    <td className="p-2 text-right">{formatCurrency(data.summary.totalVatablePurchase)}</td>
+                    <td className="p-2 text-right">{formatCurrency(data.summary.totalVatAmount)}</td>
+                    <td></td>
                   </tr>
                 </tfoot>
               )}
