@@ -22,6 +22,17 @@ interface SalesRegisterEntry {
   totalAmount: number;
   status: string;
   cbmsSynced: boolean;
+  // Edit tracking (per user request)
+  isEdited: boolean;
+  editCount: number;
+  // Complimentary tracking
+  hasComplimentaryItems: boolean;
+  complimentaryAmount: number;
+  // Additional discount info
+  billDiscountAmount: number;
+  billDiscountReason: string | null;
+  // Remarks for report
+  remarks: string;
 }
 
 interface SalesRegisterSummary {
@@ -35,6 +46,14 @@ interface SalesRegisterSummary {
   grandTotal: number;
   cbmsSyncedCount: number;
   cbmsPendingCount: number;
+  // Edit tracking summary
+  totalEditedBills: number;
+  totalEditCount: number;
+  // Complimentary summary
+  totalComplimentaryAmount: number;
+  billsWithComplimentary: number;
+  // Bill-level discount summary
+  totalBillDiscount: number;
 }
 
 interface InvoiceRecord {
@@ -53,6 +72,7 @@ interface InvoiceRecord {
   cbmsSynced: boolean;
   cbmsRequired: boolean;
   items?: unknown[];
+  billId?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -101,26 +121,84 @@ export async function GET(request: NextRequest) {
       include: { items: true },
     })) as InvoiceRecord[];
 
-    // Transform to Sales Register format
-    const entries: SalesRegisterEntry[] = invoices.map((inv: InvoiceRecord, index: number) => ({
-      sn: index + 1,
-      invoiceNumber: inv.invoiceNumber,
-      invoiceDateBs: inv.invoiceDateBs,
-      invoiceDateAd: inv.invoiceDateAd.toISOString().split("T")[0] ?? "",
-      buyerName: inv.buyerName,
-      buyerPan: inv.buyerPan,
-      subtotal: Number(inv.subtotal),
-      discountAmount: Number(inv.discountAmount),
-      taxableAmount: Number(inv.taxableAmount),
-      vatAmount: Number(inv.vatAmount),
-      totalAmount: Number(inv.totalAmount),
-      status: inv.status,
-      cbmsSynced: inv.cbmsSynced,
-    }));
+    // Fetch bill data for edit tracking (billId is stored in Invoice)
+    const billIds = invoices.map(inv => inv.billId).filter(Boolean) as string[];
+    const bills = billIds.length > 0
+      ? await prisma.bill.findMany({
+          where: { id: { in: billIds } },
+          select: {
+            id: true,
+            isEdited: true,
+            editCount: true,
+            hasComplimentaryItems: true,
+            complimentaryTotal: true,
+            billDiscountAmount: true,
+            billDiscountReason: true,
+          },
+        })
+      : [];
+    const billMap = new Map(bills.map(b => [b.id, b]));
+
+    // Transform to Sales Register format with edit tracking
+    const entries: SalesRegisterEntry[] = invoices.map((inv: InvoiceRecord, index: number) => {
+      const bill = inv.billId ? billMap.get(inv.billId) : undefined;
+      const isEdited = bill?.isEdited || false;
+      const editCount = bill?.editCount || 0;
+      const hasComplimentaryItems = bill?.hasComplimentaryItems || false;
+      const complimentaryAmount = bill?.complimentaryTotal || 0;
+      const billDiscountAmount = bill?.billDiscountAmount || 0;
+      const billDiscountReason = bill?.billDiscountReason || null;
+
+      // Build remarks
+      const remarksParts: string[] = [];
+      if (isEdited) {
+        remarksParts.push(`Edited (${editCount}x)`);
+      }
+      if (hasComplimentaryItems) {
+        remarksParts.push(`Complimentary: Rs.${complimentaryAmount.toFixed(0)}`);
+      }
+      if (billDiscountAmount > 0) {
+        remarksParts.push(`Bill Discount: Rs.${billDiscountAmount}`);
+      }
+      if (inv.status === "CANCELLED") {
+        remarksParts.push("CANCELLED");
+      }
+
+      return {
+        sn: index + 1,
+        invoiceNumber: inv.invoiceNumber,
+        invoiceDateBs: inv.invoiceDateBs,
+        invoiceDateAd: inv.invoiceDateAd.toISOString().split("T")[0] ?? "",
+        buyerName: inv.buyerName,
+        buyerPan: inv.buyerPan,
+        subtotal: Number(inv.subtotal),
+        discountAmount: Number(inv.discountAmount),
+        taxableAmount: Number(inv.taxableAmount),
+        vatAmount: Number(inv.vatAmount),
+        totalAmount: Number(inv.totalAmount),
+        status: inv.status,
+        cbmsSynced: inv.cbmsSynced,
+        // Edit tracking
+        isEdited,
+        editCount,
+        // Complimentary tracking
+        hasComplimentaryItems,
+        complimentaryAmount,
+        // Bill discount
+        billDiscountAmount,
+        billDiscountReason,
+        // Remarks
+        remarks: remarksParts.join("; "),
+      };
+    });
 
     // Calculate summary
     const activeInvoices = invoices.filter((inv: InvoiceRecord) => inv.status === "ACTIVE");
     const cancelledInvoices = invoices.filter((inv: InvoiceRecord) => inv.status === "CANCELLED");
+
+    // Calculate edit and complimentary totals from entries
+    const editedEntries = entries.filter(e => e.isEdited);
+    const complimentaryEntries = entries.filter(e => e.hasComplimentaryItems);
 
     const summary: SalesRegisterSummary = {
       totalInvoices: invoices.length,
@@ -133,6 +211,14 @@ export async function GET(request: NextRequest) {
       grandTotal: activeInvoices.reduce((sum: number, inv: InvoiceRecord) => sum + Number(inv.totalAmount), 0),
       cbmsSyncedCount: invoices.filter((inv: InvoiceRecord) => inv.cbmsSynced).length,
       cbmsPendingCount: invoices.filter((inv: InvoiceRecord) => !inv.cbmsSynced && inv.cbmsRequired).length,
+      // Edit tracking summary
+      totalEditedBills: editedEntries.length,
+      totalEditCount: editedEntries.reduce((sum, e) => sum + e.editCount, 0),
+      // Complimentary summary
+      totalComplimentaryAmount: entries.reduce((sum, e) => sum + e.complimentaryAmount, 0),
+      billsWithComplimentary: complimentaryEntries.length,
+      // Bill-level discount summary
+      totalBillDiscount: entries.reduce((sum, e) => sum + e.billDiscountAmount, 0),
     };
 
     // Get restaurant info for report header
@@ -202,9 +288,9 @@ function generateCSV(
   lines.push(`"Generated: ${header.generatedAtBs}"`);
   lines.push("");
 
-  // Column headers
+  // Column headers (IRD format with edit tracking)
   lines.push(
-    "SN,Invoice Number,Date (BS),Date (AD),Buyer Name,Buyer PAN,Subtotal,Discount,Taxable Amount,VAT 13%,Total,Status,CBMS Synced"
+    "SN,Invoice Number,Date (BS),Date (AD),Buyer Name,Buyer PAN,Subtotal,Discount,Taxable Amount,VAT 13%,Total,Status,CBMS Synced,Edited,Edit Count,Complimentary Amt,Bill Discount,Remarks"
   );
 
   // Data rows
@@ -224,6 +310,11 @@ function generateCSV(
         entry.totalAmount.toFixed(2),
         entry.status,
         entry.cbmsSynced ? "Yes" : "No",
+        entry.isEdited ? "Yes" : "No",
+        entry.editCount,
+        entry.complimentaryAmount.toFixed(2),
+        entry.billDiscountAmount.toFixed(2),
+        `"${entry.remarks.replace(/"/g, '""')}"`,
       ].join(",")
     );
   }
@@ -241,6 +332,13 @@ function generateCSV(
   lines.push(`"Grand Total",${summary.grandTotal.toFixed(2)}`);
   lines.push(`"CBMS Synced",${summary.cbmsSyncedCount}`);
   lines.push(`"CBMS Pending",${summary.cbmsPendingCount}`);
+  lines.push("");
+  lines.push(`"EDIT & COMPLIMENTARY TRACKING"`);
+  lines.push(`"Total Edited Bills",${summary.totalEditedBills}`);
+  lines.push(`"Total Edit Count",${summary.totalEditCount}`);
+  lines.push(`"Bills with Complimentary",${summary.billsWithComplimentary}`);
+  lines.push(`"Total Complimentary Amount",${summary.totalComplimentaryAmount.toFixed(2)}`);
+  lines.push(`"Total Bill Discount",${summary.totalBillDiscount.toFixed(2)}`);
 
   return lines.join("\n");
 }

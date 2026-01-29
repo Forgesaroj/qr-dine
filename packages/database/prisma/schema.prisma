@@ -118,12 +118,28 @@ enum OrderItemStatus {
 }
 
 enum BillStatus {
-  OPEN
+  DRAFT // Bill created but not finalized - can be edited
+  FINALIZED // Bill locked - ready for payment
+  OPEN // Legacy - treat as FINALIZED
   PARTIALLY_PAID
   PAID
   REFUNDED
   VOIDED
   CANCELLED
+}
+
+enum BillEditAction {
+  ITEM_ADDED
+  ITEM_REMOVED
+  ITEM_QUANTITY_CHANGED
+  ITEM_MADE_COMPLIMENTARY
+  ITEM_DISCOUNT_APPLIED
+  BILL_DISCOUNT_APPLIED
+  TABLE_CHANGED
+  GUEST_COMPLAINT_DISCOUNT
+  WRONG_ITEM_CORRECTION
+  PRICE_OVERRIDE
+  OTHER
 }
 
 enum PaymentStatus {
@@ -336,6 +352,10 @@ model Restaurant {
   invoices   Invoice[]
   cbmsConfig RestaurantCBMSConfig?
 
+  // Purchase Module Relations
+  vendors   Vendor[]
+  purchases Purchase[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -391,6 +411,10 @@ model User {
   // Session flow relations (per SESSION_FLOW_SPEC)
   cleanedTables     TableCleaningRecord[]
   guestCountChanges GuestCountHistory[]
+
+  // Bill edit tracking relations
+  finalizedBills Bill[]        @relation("BillFinalizer")
+  billEdits      BillEditLog[] @relation("BillEditEditor")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -601,24 +625,24 @@ model RestaurantSettings {
   // ─────────────────────────────────────────────────────────────────────────────
   // IRD E-BILLING SETTINGS
   // ─────────────────────────────────────────────────────────────────────────────
-  irdEnabled          Boolean @default(false) @map("ird_enabled")
+  irdEnabled Boolean @default(false) @map("ird_enabled")
   // When enabled: Bills generate IRD-compliant invoices with sequential numbering
   // When disabled: Bills print as normal without IRD invoice creation
 
   // Business Information (Required when IRD is enabled)
-  irdVatNumber        String? @map("ird_vat_number") // PAN/VAT Registration Number
-  irdBusinessName     String? @map("ird_business_name") // Registered business name
-  irdBusinessNameNp   String? @map("ird_business_name_np") // Business name in Nepali
-  irdBusinessAddress  String? @map("ird_business_address")
+  irdVatNumber         String? @map("ird_vat_number") // PAN/VAT Registration Number
+  irdBusinessName      String? @map("ird_business_name") // Registered business name
+  irdBusinessNameNp    String? @map("ird_business_name_np") // Business name in Nepali
+  irdBusinessAddress   String? @map("ird_business_address")
   irdBusinessAddressNp String? @map("ird_business_address_np") // Address in Nepali
 
   // VAT Settings
-  irdVatRate          Decimal @default(13) @map("ird_vat_rate") @db.Decimal(5, 2) // VAT percentage (13%)
-  irdServiceChargeRate Decimal @default(10) @map("ird_service_charge_rate") @db.Decimal(5, 2) // Service charge (10%)
+  irdVatRate              Decimal @default(13) @map("ird_vat_rate") @db.Decimal(5, 2) // VAT percentage (13%)
+  irdServiceChargeRate    Decimal @default(10) @map("ird_service_charge_rate") @db.Decimal(5, 2) // Service charge (10%)
   irdIncludeServiceCharge Boolean @default(true) @map("ird_include_service_charge")
 
   // Invoice Number Configuration
-  irdInvoicePrefix    String? @map("ird_invoice_prefix") // e.g., "KTM" for Kathmandu
+  irdInvoicePrefix String? @map("ird_invoice_prefix") // e.g., "KTM" for Kathmandu
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1084,11 +1108,36 @@ model Bill {
   pointsDiscount Float @default(0) @map("points_discount")
 
   // Status
-  status        BillStatus @default(OPEN)
+  status        BillStatus @default(DRAFT)
   generatedById String?    @map("generated_by_id")
   generatedBy   User?      @relation("BillGenerator", fields: [generatedById], references: [id])
   settledById   String?    @map("settled_by_id")
   settledBy     User?      @relation("BillSettler", fields: [settledById], references: [id])
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // BILL EDIT TRACKING
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  // Edit status
+  isEdited  Boolean @default(false) @map("is_edited")
+  editCount Int     @default(0) @map("edit_count")
+
+  // Finalization (locks the bill for editing)
+  finalizedAt   DateTime? @map("finalized_at")
+  finalizedById String?   @map("finalized_by_id")
+  finalizedBy   User?     @relation("BillFinalizer", fields: [finalizedById], references: [id])
+
+  // Original amounts (before any edits)
+  originalSubtotal    Float? @map("original_subtotal")
+  originalTotalAmount Float? @map("original_total_amount")
+
+  // Bill-level discount (separate from item discounts)
+  billDiscountAmount Float?  @default(0) @map("bill_discount_amount")
+  billDiscountReason String? @map("bill_discount_reason")
+
+  // Complimentary tracking
+  hasComplimentaryItems Boolean @default(false) @map("has_complimentary_items")
+  complimentaryTotal    Float   @default(0) @map("complimentary_total")
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PHASE 5 TIMESTAMPS (Billing Flow)
@@ -1103,6 +1152,8 @@ model Bill {
   // Relations
   payments           Payment[]
   pointsTransactions PointsTransaction[]
+  billItems          BillItem[]
+  editLogs           BillEditLog[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1111,7 +1162,103 @@ model Bill {
   @@index([restaurantId])
   @@index([orderId])
   @@index([status])
+  @@index([isEdited])
   @@map("bills")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILL ITEMS (For editable bills with complimentary/discount support)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model BillItem {
+  id     String @id @default(cuid())
+  billId String @map("bill_id")
+  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  // Original order item reference
+  orderItemId  String? @map("order_item_id")
+  menuItemId   String? @map("menu_item_id")
+  menuItemName String  @map("menu_item_name")
+
+  // Quantities
+  quantity         Int @default(1)
+  originalQuantity Int @default(1) @map("original_quantity")
+
+  // Pricing
+  unitPrice  Float @map("unit_price")
+  totalPrice Float @map("total_price")
+
+  // Complimentary
+  isComplimentary     Boolean   @default(false) @map("is_complimentary")
+  complimentaryReason String?   @map("complimentary_reason")
+  complimentaryById   String?   @map("complimentary_by_id")
+  complimentaryAt     DateTime? @map("complimentary_at")
+
+  // Item-level discount
+  discountAmount Float?    @default(0) @map("discount_amount")
+  discountReason String?   @map("discount_reason")
+  discountById   String?   @map("discount_by_id")
+  discountAt     DateTime? @map("discount_at")
+
+  // Was this item modified from original order?
+  isModified Boolean @default(false) @map("is_modified")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([billId])
+  @@index([orderItemId])
+  @@index([isComplimentary])
+  @@map("bill_items")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BILL EDIT LOG (Audit trail for all bill modifications)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model BillEditLog {
+  id           String @id @default(cuid())
+  billId       String @map("bill_id")
+  bill         Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  restaurantId String @map("restaurant_id")
+
+  // Edit action type
+  action BillEditAction
+
+  // Who made the edit
+  editedById   String @map("edited_by_id")
+  editor       User   @relation("BillEditEditor", fields: [editedById], references: [id])
+  editedByName String @map("edited_by_name")
+  editedByRole String @map("edited_by_role")
+
+  // What was changed
+  billItemId  String? @map("bill_item_id")
+  itemName    String? @map("item_name")
+  description String // Human readable description: "Made Butter Naan complimentary"
+
+  // Before/After values
+  oldValue Json? @map("old_value")
+  newValue Json? @map("new_value")
+
+  // Reason for edit
+  reason String?
+
+  // Amount impact
+  amountBefore Float? @map("amount_before")
+  amountAfter  Float? @map("amount_after")
+  amountChange Float? @map("amount_change")
+
+  // Audit info
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([billId])
+  @@index([restaurantId, createdAt])
+  @@index([editedById])
+  @@index([action])
+  @@map("bill_edit_logs")
 }
 
 model Payment {
@@ -1896,9 +2043,9 @@ model Invoice {
   // AMOUNTS (Using Decimal for precision)
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  subtotal       Decimal  @db.Decimal(12, 2)
-  discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(12, 2)
-  discountReason String?  @map("discount_reason")
+  subtotal       Decimal @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  discountReason String? @map("discount_reason")
 
   taxableAmount Decimal @map("taxable_amount") @db.Decimal(12, 2)
   vatRate       Decimal @default(13) @map("vat_rate") @db.Decimal(5, 2)
@@ -1957,8 +2104,8 @@ model Invoice {
   sessionId     String? @map("session_id")
   paymentMethod String? @map("payment_method")
 
-  createdBy     String  @map("created_by")
-  createdByName String  @map("created_by_name")
+  createdBy     String @map("created_by")
+  createdByName String @map("created_by_name")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2130,4 +2277,201 @@ model ActivityLog {
   @@index([orderId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PURCHASE MODULE (Vendors, Purchases, Purchase Register)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum PurchaseStatus {
+  DRAFT
+  CONFIRMED
+  RECEIVED
+  PARTIALLY_RECEIVED
+  CANCELLED
+}
+
+enum PurchasePaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+}
+
+model Vendor {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // Vendor identification
+  vendorCode String  @map("vendor_code") // V001, V002, etc.
+  name       String
+  nameLocal  String? @map("name_local") // Nepali name
+
+  // Tax info (for IRD Purchase Register)
+  panNumber String? @map("pan_number") // 9-digit PAN
+  vatNumber String? @map("vat_number")
+
+  // Contact
+  address     String?
+  city        String?
+  phone       String?
+  email       String?
+  contactName String? @map("contact_name")
+
+  // Bank details
+  bankName      String? @map("bank_name")
+  bankBranch    String? @map("bank_branch")
+  accountNumber String? @map("account_number")
+  accountName   String? @map("account_name")
+
+  // Payment terms
+  creditDays Int @default(0) @map("credit_days")
+
+  // Categories this vendor supplies
+  categories Json? // ["Vegetables", "Meat", "Beverages"]
+
+  // Stats
+  totalPurchases Float @default(0) @map("total_purchases")
+  totalPaid      Float @default(0) @map("total_paid")
+  balance        Float @default(0) // Outstanding balance
+
+  status VendorStatus @default(ACTIVE)
+  notes  String?
+
+  // Relations
+  purchases Purchase[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, vendorCode])
+  @@unique([restaurantId, panNumber])
+  @@index([restaurantId])
+  @@index([status])
+  @@map("vendors")
+}
+
+model Purchase {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // Purchase identification
+  purchaseNumber String @map("purchase_number") // PO-2081-00001
+
+  // Vendor
+  vendorId   String  @map("vendor_id")
+  vendor     Vendor  @relation(fields: [vendorId], references: [id])
+  vendorName String  @map("vendor_name") // Snapshot at time of purchase
+  vendorPan  String? @map("vendor_pan") // Snapshot
+
+  // Invoice from vendor
+  vendorInvoiceNumber String?   @map("vendor_invoice_number")
+  vendorInvoiceDate   DateTime? @map("vendor_invoice_date")
+  vendorInvoiceDateBs String?   @map("vendor_invoice_date_bs")
+
+  // Purchase dates
+  purchaseDateAd DateTime @map("purchase_date_ad")
+  purchaseDateBs String   @map("purchase_date_bs")
+  fiscalYear     String   @map("fiscal_year")
+
+  // Amounts (IRD Purchase Register format)
+  subtotal         Decimal @db.Decimal(12, 2)
+  vatableAmount    Decimal @default(0) @map("vatable_amount") @db.Decimal(12, 2)
+  vatAmount        Decimal @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  vatRate          Decimal @default(13) @map("vat_rate") @db.Decimal(5, 2)
+  nonVatableAmount Decimal @default(0) @map("non_vatable_amount") @db.Decimal(12, 2)
+  capitalGoods     Decimal @default(0) @map("capital_goods") @db.Decimal(12, 2)
+  importAmount     Decimal @default(0) @map("import_amount") @db.Decimal(12, 2)
+  discountAmount   Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  totalAmount      Decimal @map("total_amount") @db.Decimal(12, 2)
+
+  // Status
+  status        PurchaseStatus        @default(DRAFT)
+  paymentStatus PurchasePaymentStatus @default(UNPAID) @map("payment_status")
+  amountPaid    Decimal               @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  dueDate       DateTime?             @map("due_date")
+
+  // Received tracking
+  receivedAt   DateTime? @map("received_at")
+  receivedById String?   @map("received_by_id")
+
+  // Notes
+  notes         String?
+  internalNotes String? @map("internal_notes")
+
+  // Created by
+  createdById   String @map("created_by_id")
+  createdByName String @map("created_by_name")
+
+  // Relations
+  items    PurchaseItem[]
+  payments PurchasePayment[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, purchaseNumber])
+  @@index([restaurantId, fiscalYear])
+  @@index([restaurantId, purchaseDateAd])
+  @@index([vendorId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String   @map("purchase_id")
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  serialNumber Int     @map("serial_number")
+  description  String
+  quantity     Decimal @db.Decimal(10, 2)
+  unit         String? // kg, pcs, ltr, etc.
+  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
+  totalPrice   Decimal @map("total_price") @db.Decimal(12, 2)
+
+  // Is this item VATable?
+  isVatable Boolean @default(true) @map("is_vatable")
+
+  // Received tracking
+  quantityReceived Decimal   @default(0) @map("quantity_received") @db.Decimal(10, 2)
+  receivedAt       DateTime? @map("received_at")
+
+  // Link to menu item (optional - for inventory tracking)
+  menuItemId String? @map("menu_item_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([purchaseId])
+  @@map("purchase_items")
+}
+
+model PurchasePayment {
+  id         String   @id @default(cuid())
+  purchaseId String   @map("purchase_id")
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  reference     String?
+  paymentDate   DateTime      @map("payment_date")
+  transactionId String?       @map("transaction_id")
+
+  paidById   String @map("paid_by_id")
+  paidByName String @map("paid_by_name")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([purchaseId])
+  @@map("purchase_payments")
 }

@@ -48,7 +48,9 @@ import {
   TestTube,
   CheckCircle2,
   XCircle,
+  Server,
 } from "lucide-react";
+import { SystemUpdatePanel } from "@/components/settings/SystemUpdatePanel";
 import { cn } from "@/lib/utils";
 
 interface RestaurantSettings {
@@ -766,7 +768,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-3xl grid-cols-5">
+        <TabsList className="grid w-full max-w-4xl grid-cols-6">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             General
@@ -786,6 +788,10 @@ export default function SettingsPage() {
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Permissions
+          </TabsTrigger>
+          <TabsTrigger value="system" className="flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            System
           </TabsTrigger>
         </TabsList>
 
@@ -2389,6 +2395,13 @@ export default function SettingsPage() {
               )}
             </div>
           )}
+        </TabsContent>
+
+        {/* System Tab - Only visible to OWNER */}
+        <TabsContent value="system" className="mt-6">
+          <div className="max-w-2xl">
+            <SystemUpdatePanel />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
