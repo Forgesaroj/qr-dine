@@ -62,7 +62,7 @@ async function getUpdateSteps(): Promise<UpdateStep[]> {
     },
     {
       name: "Generate Prisma client",
-      command: "pnpm --filter @qr-dine/database db:generate",
+      command: "cd packages/database && npx prisma generate",
     },
     {
       name: "Build application",
@@ -70,7 +70,7 @@ async function getUpdateSteps(): Promise<UpdateStep[]> {
     },
     {
       name: "Run database migrations",
-      command: "pnpm --filter @qr-dine/database db:migrate:prod",
+      command: "cd packages/database && npx prisma db push --accept-data-loss",
       optional: true,
     },
   ];
