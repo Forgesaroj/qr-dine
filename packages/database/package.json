@@ -2,6 +2,9 @@
   "name": "@qr-dine/database",
   "version": "1.0.0",
   "private": true,
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
