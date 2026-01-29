@@ -64,10 +64,14 @@ export async function getSession(): Promise<TokenPayload | null> {
   return session;
 }
 
+// Check if HTTPS is required for cookies
+// Set REQUIRE_HTTPS=false for local network deployments over HTTP
+const isSecureCookie = process.env.NODE_ENV === "production" && process.env.REQUIRE_HTTPS !== "false";
+
 export function getAuthCookieOptions(maxAge: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureCookie,
     sameSite: "lax" as const,
     maxAge,
     path: "/",
@@ -75,8 +79,9 @@ export function getAuthCookieOptions(maxAge: number) {
 }
 
 export function buildCookieHeader(accessToken: string, refreshToken: string): string[] {
-  const accessCookie = `access_token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 15}; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
-  const refreshCookie = `refresh_token=${refreshToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  const secureFlag = isSecureCookie ? "; Secure" : "";
+  const accessCookie = `access_token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 15}; SameSite=Lax${secureFlag}`;
+  const refreshCookie = `refresh_token=${refreshToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${secureFlag}`;
   return [accessCookie, refreshCookie];
 }
 
