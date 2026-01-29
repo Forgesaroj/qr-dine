@@ -118,8 +118,9 @@ export default function StaffTimelinePage({
   // Get today's date as default
   useEffect(() => {
     const today = new Date();
-    setDateFrom(today.toISOString().split("T")[0]);
-    setDateTo(today.toISOString().split("T")[0]);
+    const dateStr = today.toISOString().split("T")[0] ?? "";
+    setDateFrom(dateStr);
+    setDateTo(dateStr);
   }, []);
 
   const fetchStaffInfo = async () => {
