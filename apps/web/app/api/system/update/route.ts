@@ -22,34 +22,59 @@ interface UpdateStep {
   optional?: boolean;
 }
 
-// Update steps for Raspberry Pi deployment
-const UPDATE_STEPS: UpdateStep[] = [
-  {
-    name: "Fetch latest changes",
-    command: "git fetch origin",
-  },
-  {
-    name: "Pull latest code",
-    command: "git pull origin main",
-  },
-  {
-    name: "Install dependencies",
-    command: "pnpm install --frozen-lockfile",
-  },
-  {
-    name: "Generate Prisma client",
-    command: "pnpm --filter @qr-dine/database db:generate",
-  },
-  {
-    name: "Build application",
-    command: "pnpm --filter web build",
-  },
-  {
-    name: "Run database migrations",
-    command: "pnpm --filter @qr-dine/database db:migrate:prod",
-    optional: true,
-  },
-];
+// Helper to get the first remote name (usually 'origin' or custom name)
+async function getGitRemote(): Promise<string> {
+  try {
+    const { stdout } = await execAsync("git remote | head -1", { cwd: PROJECT_ROOT });
+    return stdout.trim() || "origin";
+  } catch {
+    return "origin";
+  }
+}
+
+// Helper to get current branch name
+async function getGitBranch(): Promise<string> {
+  try {
+    const { stdout } = await execAsync("git branch --show-current", { cwd: PROJECT_ROOT });
+    return stdout.trim() || "main";
+  } catch {
+    return "main";
+  }
+}
+
+// Generate update steps dynamically based on remote and branch
+async function getUpdateSteps(): Promise<UpdateStep[]> {
+  const remote = await getGitRemote();
+  const branch = await getGitBranch();
+
+  return [
+    {
+      name: "Fetch latest changes",
+      command: `git fetch ${remote}`,
+    },
+    {
+      name: "Pull latest code",
+      command: `git pull ${remote} ${branch}`,
+    },
+    {
+      name: "Install dependencies",
+      command: "pnpm install --frozen-lockfile",
+    },
+    {
+      name: "Generate Prisma client",
+      command: "pnpm --filter @qr-dine/database db:generate",
+    },
+    {
+      name: "Build application",
+      command: "pnpm --filter web build",
+    },
+    {
+      name: "Run database migrations",
+      command: "pnpm --filter @qr-dine/database db:migrate:prod",
+      optional: true,
+    },
+  ];
+}
 
 // POST - Trigger system update
 export async function POST(request: NextRequest) {
@@ -108,8 +133,11 @@ export async function POST(request: NextRequest) {
 
     const results: { step: string; success: boolean; output?: string; error?: string }[] = [];
 
+    // Get dynamic update steps based on remote and branch
+    const updateSteps = await getUpdateSteps();
+
     // Execute update steps
-    for (const step of UPDATE_STEPS) {
+    for (const step of updateSteps) {
       // Skip build step if requested
       if (skipBuild && step.name.toLowerCase().includes("build")) {
         log(`Skipping: ${step.name}`);
@@ -254,10 +282,14 @@ export async function GET() {
       cwd: PROJECT_ROOT,
     });
 
+    // Get remote and branch dynamically
+    const remote = await getGitRemote();
+    const currentBranch = branch.trim();
+
     // Check if there are updates available
-    await execAsync("git fetch origin", { cwd: PROJECT_ROOT });
+    await execAsync(`git fetch ${remote}`, { cwd: PROJECT_ROOT });
     const { stdout: behind } = await execAsync(
-      "git rev-list --count HEAD..origin/main",
+      `git rev-list --count HEAD..${remote}/${currentBranch}`,
       { cwd: PROJECT_ROOT }
     );
 
