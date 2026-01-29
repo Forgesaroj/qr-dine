@@ -130,8 +130,8 @@ export default function SalesReportPage() {
                 onClick={() => {
                   const d = new Date();
                   d.setDate(d.getDate() - 7);
-                  setDateFrom(d.toISOString().split("T")[0]);
-                  setDateTo(new Date().toISOString().split("T")[0]);
+                  setDateFrom(d.toISOString().split("T")[0] ?? "");
+                  setDateTo(new Date().toISOString().split("T")[0] ?? "");
                 }}
               >
                 Last 7 Days
@@ -142,8 +142,8 @@ export default function SalesReportPage() {
                 onClick={() => {
                   const d = new Date();
                   d.setDate(d.getDate() - 30);
-                  setDateFrom(d.toISOString().split("T")[0]);
-                  setDateTo(new Date().toISOString().split("T")[0]);
+                  setDateFrom(d.toISOString().split("T")[0] ?? "");
+                  setDateTo(new Date().toISOString().split("T")[0] ?? "");
                 }}
               >
                 Last 30 Days

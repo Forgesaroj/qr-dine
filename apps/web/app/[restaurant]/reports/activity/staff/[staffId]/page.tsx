@@ -283,7 +283,7 @@ export default function StaffTimelinePage({
               variant="outline"
               size="sm"
               onClick={() => {
-                const today = new Date().toISOString().split("T")[0];
+                const today = new Date().toISOString().split("T")[0] ?? "";
                 setDateFrom(today);
                 setDateTo(today);
                 setPage(1);
@@ -298,8 +298,8 @@ export default function StaffTimelinePage({
                 const today = new Date();
                 const weekAgo = new Date(today);
                 weekAgo.setDate(weekAgo.getDate() - 7);
-                setDateFrom(weekAgo.toISOString().split("T")[0]);
-                setDateTo(today.toISOString().split("T")[0]);
+                setDateFrom(weekAgo.toISOString().split("T")[0] ?? "");
+                setDateTo(today.toISOString().split("T")[0] ?? "");
                 setPage(1);
               }}
             >
