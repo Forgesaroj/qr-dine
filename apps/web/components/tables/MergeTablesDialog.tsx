@@ -178,7 +178,7 @@ export function MergeTablesDialog({
                     >
                       <Checkbox
                         checked={selectedTables.includes(table.id)}
-                        onCheckedChange={() => handleTableToggle(table.id)}
+                        onChange={() => handleTableToggle(table.id)}
                       />
                       <div className="flex-1">
                         <span className="font-medium">Table {table.tableNumber}</span>
