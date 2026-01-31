@@ -70,7 +70,7 @@ async function getUpdateSteps(): Promise<UpdateStep[]> {
     },
     {
       name: "Run database migrations",
-      command: "cd packages/database && npx prisma db push --accept-data-loss",
+      command: "cd packages/database && npx prisma db push",
       optional: true,
     },
   ];
