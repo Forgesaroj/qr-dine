@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       restaurantId: session.restaurantId,
       fiscalYear,
-      status: { in: ["APPROVED", "RECEIVED", "PAID"] }, // Only approved purchases
+      status: { in: ["CONFIRMED", "RECEIVED", "PARTIALLY_RECEIVED"] }, // Only confirmed/received purchases
     };
 
     if (startDate || endDate) {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       // Payment tracking
       totalPaid: entries.filter(e => e.paymentStatus === "PAID").length,
       totalUnpaid: entries.filter(e => e.paymentStatus === "UNPAID").length,
-      totalPartiallyPaid: entries.filter(e => e.paymentStatus === "PARTIAL").length,
+      totalPartiallyPaid: entries.filter(e => e.paymentStatus === "PARTIALLY_PAID").length,
     };
 
     // Get restaurant info for report header

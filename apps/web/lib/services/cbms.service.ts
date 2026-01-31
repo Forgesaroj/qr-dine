@@ -44,11 +44,26 @@ interface InvoicePostData {
 }
 
 interface CreditNotePostData {
+  // Required fields per IRD API documentation
+  buyerPan?: string;
+  buyerName: string;
+  fiscalYear: string;
   refInvoiceNumber: string;
   creditNoteNumber: string;
-  creditNoteDate: string;
-  reason: string;
-  amount: number;
+  creditNoteDate: string; // BS date format "YYYY.MM.DD"
+  reasonForReturn: string;
+  // Amount fields (same as invoice)
+  totalSales: number;
+  taxableSalesVat: number;
+  vat: number;
+  excisableAmount?: number;
+  excise?: number;
+  taxableSalesHst?: number;
+  hst?: number;
+  amountForEsf?: number;
+  esf?: number;
+  exportSales?: number;
+  taxExemptedSales?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -113,6 +128,7 @@ export class CBMSService {
 
   /**
    * Post an invoice to CBMS
+   * Per IRD API: https://cbapi.ird.gov.np/api/bill
    * @param invoice - Invoice data to sync
    * @returns CBMS response
    */
@@ -122,6 +138,16 @@ export class CBMSService {
         success: false,
         code: 0,
         message: 'CBMS not initialized'
+      };
+    }
+
+    // Validate required fields per IRD specification
+    const validationError = this.validateInvoiceData(invoice);
+    if (validationError) {
+      return {
+        success: false,
+        code: 104,
+        message: `Validation error: ${validationError}`
       };
     }
 
@@ -207,8 +233,9 @@ export class CBMSService {
   }
 
   /**
-   * Post a credit note to CBMS
-   * @param creditNote - Credit note data
+   * Post a credit note (sales return) to CBMS
+   * Per IRD API: https://cbapi.ird.gov.np/api/billreturn
+   * @param creditNote - Credit note data with all required IRD fields
    * @returns CBMS response
    */
   async postCreditNote(creditNote: CreditNotePostData): Promise<CBMSResponse> {
@@ -220,15 +247,40 @@ export class CBMSService {
       };
     }
 
+    // Validate required fields per IRD specification
+    const validationError = this.validateCreditNoteData(creditNote);
+    if (validationError) {
+      return {
+        success: false,
+        code: 104,
+        message: `Validation error: ${validationError}`
+      };
+    }
+
+    // Payload matching IRD API ANNEX (billreturn) exactly
     const payload = {
       username: this.config.username,
       password: this.config.password,
       seller_pan: this.config.sellerPan,
+      buyer_pan: creditNote.buyerPan || '',
+      buyer_name: creditNote.buyerName,
+      fiscal_year: creditNote.fiscalYear,
       ref_invoice_number: creditNote.refInvoiceNumber,
       credit_note_number: creditNote.creditNoteNumber,
       credit_note_date: creditNote.creditNoteDate,
-      reason: creditNote.reason,
-      amount: creditNote.amount,
+      reason_for_return: creditNote.reasonForReturn,
+      // Amount fields (same structure as invoice)
+      total_sales: creditNote.totalSales,
+      taxable_sales_vat: creditNote.taxableSalesVat,
+      vat: creditNote.vat,
+      excisable_amount: creditNote.excisableAmount || 0,
+      excise: creditNote.excise || 0,
+      taxable_sales_hst: creditNote.taxableSalesHst || 0,
+      hst: creditNote.hst || 0,
+      amount_for_esf: creditNote.amountForEsf || 0,
+      esf: creditNote.esf || 0,
+      export_sales: creditNote.exportSales || 0,
+      tax_exempted_sales: creditNote.taxExemptedSales || 0,
       isrealtime: true,
       datetimeClient: new Date().toISOString()
     };
@@ -236,7 +288,7 @@ export class CBMSService {
     const syncLog = await this.createSyncLog(
       CBMSSyncType.CREDIT_NOTE,
       creditNote.creditNoteNumber,
-      '', // Fiscal year from ref invoice
+      creditNote.fiscalYear,
       payload
     );
 
@@ -314,6 +366,60 @@ export class CBMSService {
    */
   private getResponseMessage(code: number): string {
     return CBMS_RESPONSE_CODES[code]?.message || `Unknown response code: ${code}`;
+  }
+
+  /**
+   * Validate invoice data before sending to CBMS
+   * @returns error message if validation fails, null if valid
+   */
+  private validateInvoiceData(invoice: InvoicePostData): string | null {
+    if (!invoice.invoiceNumber) return 'Invoice number is required';
+    if (!invoice.invoiceDate) return 'Invoice date (BS) is required';
+    if (!invoice.fiscalYear) return 'Fiscal year is required';
+    if (!invoice.buyerName) return 'Buyer name is required';
+    if (invoice.totalSales === undefined || invoice.totalSales < 0) return 'Total sales must be a positive number';
+    if (invoice.taxableSalesVat === undefined || invoice.taxableSalesVat < 0) return 'Taxable sales must be a positive number';
+    if (invoice.vat === undefined || invoice.vat < 0) return 'VAT amount must be a positive number';
+
+    // Validate fiscal year format (e.g., "2079.080")
+    if (!/^\d{4}\.\d{3}$/.test(invoice.fiscalYear)) {
+      return 'Invalid fiscal year format (expected: YYYY.YYY)';
+    }
+
+    // Validate date format (e.g., "2079.10.15")
+    if (!/^\d{4}\.\d{2}\.\d{2}$/.test(invoice.invoiceDate)) {
+      return 'Invalid invoice date format (expected: YYYY.MM.DD in BS)';
+    }
+
+    return null;
+  }
+
+  /**
+   * Validate credit note data before sending to CBMS
+   * @returns error message if validation fails, null if valid
+   */
+  private validateCreditNoteData(creditNote: CreditNotePostData): string | null {
+    if (!creditNote.refInvoiceNumber) return 'Reference invoice number is required';
+    if (!creditNote.creditNoteNumber) return 'Credit note number is required';
+    if (!creditNote.creditNoteDate) return 'Credit note date (BS) is required';
+    if (!creditNote.fiscalYear) return 'Fiscal year is required';
+    if (!creditNote.buyerName) return 'Buyer name is required';
+    if (!creditNote.reasonForReturn) return 'Reason for return is required';
+    if (creditNote.totalSales === undefined || creditNote.totalSales < 0) return 'Total sales must be a positive number';
+    if (creditNote.taxableSalesVat === undefined || creditNote.taxableSalesVat < 0) return 'Taxable sales must be a positive number';
+    if (creditNote.vat === undefined || creditNote.vat < 0) return 'VAT amount must be a positive number';
+
+    // Validate fiscal year format
+    if (!/^\d{4}\.\d{3}$/.test(creditNote.fiscalYear)) {
+      return 'Invalid fiscal year format (expected: YYYY.YYY)';
+    }
+
+    // Validate date format
+    if (!/^\d{4}\.\d{2}\.\d{2}$/.test(creditNote.creditNoteDate)) {
+      return 'Invalid credit note date format (expected: YYYY.MM.DD in BS)';
+    }
+
+    return null;
   }
 
   /**

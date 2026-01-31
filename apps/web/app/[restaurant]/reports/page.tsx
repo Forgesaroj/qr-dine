@@ -22,6 +22,7 @@ import {
   CreditCard,
   UserCheck,
   ClipboardList,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import { ExportButton } from "./components/ExportButton";
@@ -149,7 +150,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Quick Links to Detailed Reports */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-6">
         <Link href="reports/sales" className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
           <BarChart3 className="h-6 w-6 text-blue-600 mb-2" />
           <p className="font-medium">Sales Details</p>
@@ -174,6 +175,11 @@ export default function ReportsPage() {
           <ClipboardList className="h-6 w-6 text-red-600 mb-2" />
           <p className="font-medium">Activity Log</p>
           <p className="text-xs text-muted-foreground">Full audit trail</p>
+        </Link>
+        <Link href="reports/ird" className="p-4 border rounded-lg hover:bg-gray-50 transition-colors border-indigo-200 bg-indigo-50/50">
+          <Building2 className="h-6 w-6 text-indigo-600 mb-2" />
+          <p className="font-medium">IRD Reports</p>
+          <p className="text-xs text-muted-foreground">Sales & Purchase Register</p>
         </Link>
       </div>
 

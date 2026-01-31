@@ -92,7 +92,10 @@
       "Bash(del \"d:\\\\Project file\\\\On going Project\\\\QR-DIne\\\\packages\\\\database\\\\run-prisma.ps1\")",
       "Bash(ssh ubuntu@192.168.2.33 \"cat > ~/qr-dine/apps/web/.env.local << ''EOF''\nDATABASE_URL=\"\"postgresql://qrdine:S%40roj123%40@localhost:5432/qrdine\"\"\nNEXTAUTH_SECRET=\"\"qrdine-secret-key-2024\"\"\nNEXTAUTH_URL=\"\"http://192.168.2.33:3000\"\"\nEOF\")",
       "Bash(ssh:*)",
-      "Bash(sshpass:*)"
+      "Bash(sshpass:*)",
+      "Bash(shutdown /r /t 5 /c \"Restarting to apply performance optimizations\")",
+      "Bash(cmd //c \"taskkill /PID 1792 /F\")",
+      "Bash(cmd //c \"taskkill /PID 6692 /F\")"
     ]
   }
 }
