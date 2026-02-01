@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { deductStockForMenuItem } from "@/lib/services/stock-deduction.service";
 
 // PATCH update individual order item status
 export async function PATCH(
@@ -46,6 +47,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
+    // Get the order item for stock deduction
+    const orderItem = await prisma.orderItem.findUnique({
+      where: { id: itemId },
+      select: { menuItemId: true, quantity: true },
+    });
+
     // Build update data with timestamps
     const updateData: Record<string, unknown> = { status };
 
@@ -57,6 +64,22 @@ export async function PATCH(
       updateData.readyAt = new Date();
     } else if (status === "SERVED") {
       updateData.servedAt = new Date();
+
+      // Auto-deduct stock based on BOM
+      if (orderItem) {
+        try {
+          await deductStockForMenuItem(
+            session.restaurantId,
+            orderItem.menuItemId,
+            orderItem.quantity,
+            itemId,
+            session.id,
+            session.name || session.email
+          );
+        } catch (stockError) {
+          console.error("Stock deduction error (non-blocking):", stockError);
+        }
+      }
     }
 
     // Update the item

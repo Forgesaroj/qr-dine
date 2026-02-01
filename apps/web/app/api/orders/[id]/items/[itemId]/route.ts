@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { calculateSlaBreach } from "@/lib/session-duration";
+import { deductStockForMenuItem, reverseStockDeduction } from "@/lib/services/stock-deduction.service";
 
 /**
  * PATCH /api/orders/[id]/items/[itemId]
@@ -112,10 +113,35 @@ export async function PATCH(
         } else {
           updateData.foodPickedAt = updateData.foodPickedAt || now;
         }
+
+        // Auto-deduct stock based on BOM
+        try {
+          await deductStockForMenuItem(
+            session.restaurantId,
+            item.menuItemId,
+            item.quantity,
+            itemId,
+            session.id,
+            session.name || session.email
+          );
+        } catch (stockError) {
+          console.error("Stock deduction error (non-blocking):", stockError);
+        }
         break;
 
       case "CANCELLED":
-        // Allow cancellation
+        // Reverse stock deduction if item was previously served
+        if (item.status === "SERVED") {
+          try {
+            await reverseStockDeduction(
+              itemId,
+              session.id,
+              session.name || session.email
+            );
+          } catch (stockError) {
+            console.error("Stock reversal error (non-blocking):", stockError);
+          }
+        }
         break;
 
       default:

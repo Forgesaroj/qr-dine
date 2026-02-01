@@ -95,7 +95,12 @@
       "Bash(sshpass:*)",
       "Bash(shutdown /r /t 5 /c \"Restarting to apply performance optimizations\")",
       "Bash(cmd //c \"taskkill /PID 1792 /F\")",
-      "Bash(cmd //c \"taskkill /PID 6692 /F\")"
+      "Bash(cmd //c \"taskkill /PID 6692 /F\")",
+      "Bash(npx tsx:*)",
+      "Bash(del \"d:\\\\Project file\\\\On going Project\\\\QR-DIne\\\\packages\\\\database\\\\prisma\\\\setup-cbms-test.ts\")",
+      "Bash(cmd.exe /c \"taskkill /PID 17512 /F\")",
+      "Bash(cmd.exe /c \"cd /d \"\"d:\\\\Project file\\\\On going Project\\\\QR-DIne\\\\packages\\\\database\"\" && set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/qrdine?schema=public && npx prisma db push\")",
+      "Bash(scp:*)"
     ]
   }
 }

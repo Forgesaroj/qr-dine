@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import { deductStockForMenuItem } from "@/lib/services/stock-deduction.service";
 
 // PATCH update individual bar item status
 export async function PATCH(
@@ -71,6 +72,20 @@ export async function PATCH(
       updateData.readyAt = now;
     } else if (status === "SERVED") {
       updateData.servedAt = now;
+
+      // Auto-deduct stock based on BOM
+      try {
+        await deductStockForMenuItem(
+          session.restaurantId,
+          existingItem.menuItemId,
+          existingItem.quantity,
+          itemId,
+          session.id,
+          session.name || session.email
+        );
+      } catch (stockError) {
+        console.error("Stock deduction error (non-blocking):", stockError);
+      }
     }
 
     // Update the item

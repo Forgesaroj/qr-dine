@@ -16,6 +16,7 @@ import {
 } from "@qr-dine/ui";
 import { ArrowLeft, Loader2, Save, AlertCircle, Trash2 } from "lucide-react";
 import Link from "next/link";
+import BOMEditor from "@/components/menu/BOMEditor";
 
 interface Category {
   id: string;
@@ -333,6 +334,9 @@ export default function EditMenuItemPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Bill of Materials / Recipe */}
+      <BOMEditor menuItemId={itemId} restaurant={restaurant} />
     </div>
   );
 }

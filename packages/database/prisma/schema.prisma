@@ -251,6 +251,86 @@ enum AttendanceStatus {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ERP ENUMS - Inventory & Accounting
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum StockItemType {
+  RAW_MATERIAL
+  FINISHED_GOODS
+  CONSUMABLE
+  PACKAGING
+}
+
+enum StockValuationMethod {
+  FIFO
+  WEIGHTED_AVERAGE
+  STANDARD_COST
+}
+
+enum StockMovementType {
+  PURCHASE_IN
+  SALES_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  PRODUCTION_IN
+  PRODUCTION_OUT
+  RETURN_IN
+  RETURN_OUT
+  EXPIRED
+}
+
+enum AccountGroup {
+  ASSETS
+  LIABILITIES
+  INCOME
+  EXPENSES
+  EQUITY
+}
+
+enum AccountType {
+  FIXED_ASSETS
+  CURRENT_ASSETS
+  CASH_AND_BANK
+  ACCOUNTS_RECEIVABLE
+  INVENTORY
+  PREPAID_EXPENSES
+  CURRENT_LIABILITIES
+  LONG_TERM_LIABILITIES
+  ACCOUNTS_PAYABLE
+  ACCRUED_EXPENSES
+  SALES_REVENUE
+  OTHER_INCOME
+  COST_OF_GOODS_SOLD
+  OPERATING_EXPENSES
+  ADMINISTRATIVE_EXPENSES
+  FINANCIAL_EXPENSES
+  CAPITAL
+  RETAINED_EARNINGS
+  DRAWINGS
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  CONTRA
+  JOURNAL
+  SALES
+  PURCHASE
+  CREDIT_NOTE
+  DEBIT_NOTE
+  OPENING_BALANCE
+}
+
+enum VoucherStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+  REVERSED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // LICENSE & MULTI-TENANT CORE
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -355,6 +435,18 @@ model Restaurant {
   // Purchase Module Relations
   vendors   Vendor[]
   purchases Purchase[]
+
+  // ERP Module Relations
+  stockItems          StockItem[]
+  stockCategories     StockCategory[]
+  godowns             Godown[]
+  stockAdjustments    StockAdjustment[]
+  chartOfAccounts     ChartOfAccounts[]
+  vouchers            Voucher[]
+  costCenters         CostCenter[]
+  budgets             Budget[]
+  bankReconciliations BankReconciliation[]
+  erpSettings         ERPSettings?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -746,7 +838,8 @@ model MenuItem {
   timesOrdered Int     @default(0) @map("times_ordered")
 
   // Relations
-  orderItems OrderItem[]
+  orderItems    OrderItem[]
+  stockMappings StockMenuItemMapping[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2474,4 +2567,556 @@ model PurchasePayment {
 
   @@index([purchaseId])
   @@map("purchase_payments")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ERP MODULE - INVENTORY & STOCK MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model StockCategory {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  name      String
+  parentId  String?         @map("parent_id")
+  parent    StockCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  StockCategory[] @relation("CategoryHierarchy")
+  sortOrder Int             @default(0) @map("sort_order")
+
+  stockItems StockItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, name, parentId])
+  @@index([restaurantId])
+  @@map("stock_categories")
+}
+
+model StockItem {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // Item identification
+  itemCode  String  @map("item_code")
+  name      String
+  nameLocal String? @map("name_local")
+  description String?
+
+  // Classification
+  type       StockItemType   @default(RAW_MATERIAL)
+  categoryId String?         @map("category_id")
+  category   StockCategory?  @relation(fields: [categoryId], references: [id])
+
+  // Units
+  baseUnit         String  @map("base_unit")
+  purchaseUnit     String? @map("purchase_unit")
+  conversionFactor Decimal @default(1) @map("conversion_factor") @db.Decimal(10, 4)
+
+  // Valuation
+  valuationMethod  StockValuationMethod @default(WEIGHTED_AVERAGE) @map("valuation_method")
+  standardCost     Decimal?             @map("standard_cost") @db.Decimal(12, 2)
+  lastPurchaseRate Decimal?             @map("last_purchase_rate") @db.Decimal(12, 2)
+  averageCost      Decimal              @default(0) @map("average_cost") @db.Decimal(12, 2)
+
+  // Stock levels
+  currentStock Decimal  @default(0) @map("current_stock") @db.Decimal(12, 4)
+  reorderLevel Decimal? @map("reorder_level") @db.Decimal(12, 4)
+  minimumStock Decimal? @map("minimum_stock") @db.Decimal(12, 4)
+  maximumStock Decimal? @map("maximum_stock") @db.Decimal(12, 4)
+
+  // Tracking
+  trackBatch        Boolean @default(false) @map("track_batch")
+  trackExpiry       Boolean @default(false) @map("track_expiry")
+  defaultExpiryDays Int?    @map("default_expiry_days")
+
+  // Tax
+  hsnCode   String?  @map("hsn_code")
+  vatRate   Decimal  @default(13) @map("vat_rate") @db.Decimal(5, 2)
+  isVatable Boolean  @default(true) @map("is_vatable")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  // Relations
+  menuItemMappings StockMenuItemMapping[]
+  movements        StockMovement[]
+  batches          StockBatch[]
+  godownStocks     GodownStock[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, itemCode])
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([type])
+  @@map("stock_items")
+}
+
+model StockMenuItemMapping {
+  id          String    @id @default(cuid())
+  stockItemId String    @map("stock_item_id")
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  menuItemId  String    @map("menu_item_id")
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  quantity Decimal @db.Decimal(10, 4)
+  unit     String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([stockItemId, menuItemId])
+  @@index([menuItemId])
+  @@map("stock_menu_item_mappings")
+}
+
+model Godown {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  code      String
+  name      String
+  address   String?
+  type      String  @default("MAIN")
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
+
+  godownStocks  GodownStock[]
+  movementsFrom StockMovement[] @relation("MovementFromGodown")
+  movementsTo   StockMovement[] @relation("MovementToGodown")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId])
+  @@map("godowns")
+}
+
+model GodownStock {
+  id          String    @id @default(cuid())
+  godownId    String    @map("godown_id")
+  godown      Godown    @relation(fields: [godownId], references: [id], onDelete: Cascade)
+  stockItemId String    @map("stock_item_id")
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  quantity    Decimal @default(0) @db.Decimal(12, 4)
+  averageCost Decimal @default(0) @map("average_cost") @db.Decimal(12, 2)
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([godownId, stockItemId])
+  @@index([stockItemId])
+  @@map("godown_stocks")
+}
+
+model StockBatch {
+  id          String    @id @default(cuid())
+  stockItemId String    @map("stock_item_id")
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  godownId    String?   @map("godown_id")
+
+  batchNumber     String    @map("batch_number")
+  manufactureDate DateTime? @map("manufacture_date")
+  expiryDate      DateTime? @map("expiry_date")
+
+  quantity    Decimal @db.Decimal(12, 4)
+  costPerUnit Decimal @map("cost_per_unit") @db.Decimal(12, 2)
+
+  purchaseId String? @map("purchase_id")
+
+  isExpired  Boolean @default(false) @map("is_expired")
+  isConsumed Boolean @default(false) @map("is_consumed")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([stockItemId, batchNumber])
+  @@index([godownId])
+  @@index([expiryDate])
+  @@map("stock_batches")
+}
+
+model StockMovement {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  stockItemId  String     @map("stock_item_id")
+  stockItem    StockItem  @relation(fields: [stockItemId], references: [id])
+
+  movementNumber String            @map("movement_number")
+  movementType   StockMovementType @map("movement_type")
+  movementDate   DateTime          @map("movement_date")
+
+  fromGodownId String? @map("from_godown_id")
+  fromGodown   Godown? @relation("MovementFromGodown", fields: [fromGodownId], references: [id])
+  toGodownId   String? @map("to_godown_id")
+  toGodown     Godown? @relation("MovementToGodown", fields: [toGodownId], references: [id])
+
+  quantity    Decimal @db.Decimal(12, 4)
+  unit        String
+  rate        Decimal @db.Decimal(12, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(12, 2)
+
+  balanceAfter Decimal @map("balance_after") @db.Decimal(12, 4)
+
+  batchId     String? @map("batch_id")
+  batchNumber String? @map("batch_number")
+
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id")
+
+  notes String?
+
+  createdById   String @map("created_by_id")
+  createdByName String @map("created_by_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([restaurantId, movementNumber])
+  @@index([stockItemId])
+  @@index([movementDate])
+  @@index([movementType])
+  @@map("stock_movements")
+}
+
+model StockAdjustment {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  adjustmentNumber String   @map("adjustment_number")
+  adjustmentDate   DateTime @map("adjustment_date")
+  adjustmentType   String   @map("adjustment_type")
+
+  godownId String? @map("godown_id")
+
+  reason String?
+  notes  String?
+
+  approvedById   String?   @map("approved_by_id")
+  approvedByName String?   @map("approved_by_name")
+  approvedAt     DateTime? @map("approved_at")
+
+  createdById   String @map("created_by_id")
+  createdByName String @map("created_by_name")
+
+  items StockAdjustmentItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([restaurantId, adjustmentNumber])
+  @@index([restaurantId])
+  @@index([adjustmentDate])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id           String          @id @default(cuid())
+  adjustmentId String          @map("adjustment_id")
+  adjustment   StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  stockItemId  String          @map("stock_item_id")
+
+  systemQuantity  Decimal @map("system_quantity") @db.Decimal(12, 4)
+  actualQuantity  Decimal @map("actual_quantity") @db.Decimal(12, 4)
+  difference      Decimal @db.Decimal(12, 4)
+  unit            String
+  rate            Decimal @db.Decimal(12, 2)
+  valueDifference Decimal @map("value_difference") @db.Decimal(12, 2)
+
+  reason String?
+
+  @@index([adjustmentId])
+  @@index([stockItemId])
+  @@map("stock_adjustment_items")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ERP MODULE - ACCOUNTING & LEDGER SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model ChartOfAccounts {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  accountCode      String @map("account_code")
+  accountName      String @map("account_name")
+  accountNameLocal String? @map("account_name_local")
+
+  accountGroup AccountGroup @map("account_group")
+  accountType  AccountType  @map("account_type")
+
+  parentId String?           @map("parent_id")
+  parent   ChartOfAccounts?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children ChartOfAccounts[] @relation("AccountHierarchy")
+  level    Int               @default(0)
+
+  isBankAccount    Boolean @default(false) @map("is_bank_account")
+  isCashAccount    Boolean @default(false) @map("is_cash_account")
+  isControlAccount Boolean @default(false) @map("is_control_account")
+  allowPosting     Boolean @default(true) @map("allow_posting")
+
+  bankName          String? @map("bank_name")
+  bankBranch        String? @map("bank_branch")
+  bankAccountNumber String? @map("bank_account_number")
+
+  openingBalance Decimal @default(0) @map("opening_balance") @db.Decimal(14, 2)
+  currentBalance Decimal @default(0) @map("current_balance") @db.Decimal(14, 2)
+
+  isActive        Boolean @default(true) @map("is_active")
+  trackCostCenter Boolean @default(false) @map("track_cost_center")
+
+  ledgerEntries LedgerEntry[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, accountCode])
+  @@index([restaurantId])
+  @@index([accountGroup])
+  @@index([accountType])
+  @@index([parentId])
+  @@map("chart_of_accounts")
+}
+
+model Voucher {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  voucherNumber String        @map("voucher_number")
+  voucherType   VoucherType   @map("voucher_type")
+  voucherDate   DateTime      @map("voucher_date")
+  fiscalYear    String        @map("fiscal_year")
+  status        VoucherStatus @default(DRAFT)
+
+  narration String?
+
+  totalDebit  Decimal @default(0) @map("total_debit") @db.Decimal(14, 2)
+  totalCredit Decimal @default(0) @map("total_credit") @db.Decimal(14, 2)
+
+  referenceType   String? @map("reference_type")
+  referenceId     String? @map("reference_id")
+  referenceNumber String? @map("reference_number")
+
+  paymentMode   String?   @map("payment_mode")
+  chequeNumber  String?   @map("cheque_number")
+  chequeDate    DateTime? @map("cheque_date")
+  bankAccountId String?   @map("bank_account_id")
+
+  postedAt     DateTime? @map("posted_at")
+  postedById   String?   @map("posted_by_id")
+  postedByName String?   @map("posted_by_name")
+
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancelledById      String?   @map("cancelled_by_id")
+  cancellationReason String?   @map("cancellation_reason")
+
+  createdById   String @map("created_by_id")
+  createdByName String @map("created_by_name")
+
+  ledgerEntries LedgerEntry[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, voucherNumber])
+  @@index([restaurantId])
+  @@index([voucherType])
+  @@index([voucherDate])
+  @@index([status])
+  @@index([fiscalYear])
+  @@map("vouchers")
+}
+
+model LedgerEntry {
+  id        String          @id @default(cuid())
+  voucherId String          @map("voucher_id")
+  voucher   Voucher         @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  accountId String          @map("account_id")
+  account   ChartOfAccounts @relation(fields: [accountId], references: [id])
+
+  serialNumber Int     @map("serial_number")
+  particulars  String?
+
+  debitAmount  Decimal @default(0) @map("debit_amount") @db.Decimal(14, 2)
+  creditAmount Decimal @default(0) @map("credit_amount") @db.Decimal(14, 2)
+  balanceAfter Decimal @map("balance_after") @db.Decimal(14, 2)
+
+  costCenterId String?     @map("cost_center_id")
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  partyType String? @map("party_type")
+  partyId   String? @map("party_id")
+  partyName String? @map("party_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([voucherId])
+  @@index([accountId])
+  @@index([costCenterId])
+  @@map("ledger_entries")
+}
+
+model CostCenter {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  code        String
+  name        String
+  description String?
+
+  parentId String?      @map("parent_id")
+  parent   CostCenter?  @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children CostCenter[] @relation("CostCenterHierarchy")
+
+  type     String  @default("DEPARTMENT")
+  isActive Boolean @default(true) @map("is_active")
+
+  ledgerEntries LedgerEntry[]
+  budgets       Budget[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId])
+  @@index([parentId])
+  @@map("cost_centers")
+}
+
+model Budget {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  name       String
+  fiscalYear String @map("fiscal_year")
+  periodType String @map("period_type")
+
+  costCenterId String?     @map("cost_center_id")
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  status String @default("DRAFT")
+
+  approvedById String?   @map("approved_by_id")
+  approvedAt   DateTime? @map("approved_at")
+
+  notes String?
+
+  items BudgetItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, name, fiscalYear])
+  @@index([restaurantId])
+  @@index([fiscalYear])
+  @@map("budgets")
+}
+
+model BudgetItem {
+  id       String @id @default(cuid())
+  budgetId String @map("budget_id")
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  accountCode String @map("account_code")
+  accountName String @map("account_name")
+
+  month01 Decimal @default(0) @db.Decimal(14, 2)
+  month02 Decimal @default(0) @db.Decimal(14, 2)
+  month03 Decimal @default(0) @db.Decimal(14, 2)
+  month04 Decimal @default(0) @db.Decimal(14, 2)
+  month05 Decimal @default(0) @db.Decimal(14, 2)
+  month06 Decimal @default(0) @db.Decimal(14, 2)
+  month07 Decimal @default(0) @db.Decimal(14, 2)
+  month08 Decimal @default(0) @db.Decimal(14, 2)
+  month09 Decimal @default(0) @db.Decimal(14, 2)
+  month10 Decimal @default(0) @db.Decimal(14, 2)
+  month11 Decimal @default(0) @db.Decimal(14, 2)
+  month12 Decimal @default(0) @db.Decimal(14, 2)
+
+  totalBudget Decimal @default(0) @map("total_budget") @db.Decimal(14, 2)
+
+  @@index([budgetId])
+  @@map("budget_items")
+}
+
+model BankReconciliation {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  bankAccountId String @map("bank_account_id")
+
+  reconciliationDate DateTime @map("reconciliation_date")
+  statementDate      DateTime @map("statement_date")
+
+  bankStatementBalance Decimal @map("bank_statement_balance") @db.Decimal(14, 2)
+  bookBalance          Decimal @map("book_balance") @db.Decimal(14, 2)
+
+  depositsInTransit  Decimal @default(0) @map("deposits_in_transit") @db.Decimal(14, 2)
+  outstandingCheques Decimal @default(0) @map("outstanding_cheques") @db.Decimal(14, 2)
+  bankCharges        Decimal @default(0) @map("bank_charges") @db.Decimal(14, 2)
+  bankInterest       Decimal @default(0) @map("bank_interest") @db.Decimal(14, 2)
+
+  reconciledBalance Decimal @map("reconciled_balance") @db.Decimal(14, 2)
+  difference        Decimal @default(0) @db.Decimal(14, 2)
+
+  isReconciled Boolean @default(false) @map("is_reconciled")
+
+  notes String?
+
+  reconciledById String?   @map("reconciled_by_id")
+  reconciledAt   DateTime? @map("reconciled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([restaurantId])
+  @@index([bankAccountId])
+  @@index([reconciliationDate])
+  @@map("bank_reconciliations")
+}
+
+model ERPSettings {
+  id           String     @id @default(cuid())
+  restaurantId String     @unique @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // Stock Settings
+  defaultValuationMethod StockValuationMethod @default(WEIGHTED_AVERAGE) @map("default_valuation_method")
+  trackBatchByDefault    Boolean              @default(false) @map("track_batch_by_default")
+  trackExpiryByDefault   Boolean              @default(false) @map("track_expiry_by_default")
+  lowStockAlertEnabled   Boolean              @default(true) @map("low_stock_alert_enabled")
+  autoDeductStock        Boolean              @default(true) @map("auto_deduct_stock")
+
+  // Accounting Settings
+  autoGenerateSalesVoucher    Boolean @default(true) @map("auto_generate_sales_voucher")
+  autoGeneratePurchaseVoucher Boolean @default(true) @map("auto_generate_purchase_voucher")
+  requireVoucherApproval      Boolean @default(false) @map("require_voucher_approval")
+
+  // Default Accounts
+  defaultCashAccountId          String? @map("default_cash_account_id")
+  defaultBankAccountId          String? @map("default_bank_account_id")
+  defaultSalesAccountId         String? @map("default_sales_account_id")
+  defaultPurchaseAccountId      String? @map("default_purchase_account_id")
+  defaultReceivableAccountId    String? @map("default_receivable_account_id")
+  defaultPayableAccountId       String? @map("default_payable_account_id")
+  defaultInventoryAccountId     String? @map("default_inventory_account_id")
+  defaultCOGSAccountId          String? @map("default_cogs_account_id")
+  defaultVATAccountId           String? @map("default_vat_account_id")
+  defaultServiceChargeAccountId String? @map("default_service_charge_account_id")
+
+  // Fiscal Year
+  currentFiscalYear    String @map("current_fiscal_year")
+  fiscalYearStartMonth Int    @default(4) @map("fiscal_year_start_month")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_settings")
 }

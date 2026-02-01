@@ -43,7 +43,10 @@ export type PageAccess =
   | "lost-found"
   | "activity-log"
   | "reports"
-  | "settings";
+  | "settings"
+  | "inventory"
+  | "accounting"
+  | "purchases";
 
 // Define which pages each role can access
 export const rolePageAccess: Record<Role, PageAccess[]> = {
@@ -68,6 +71,9 @@ export const rolePageAccess: Record<Role, PageAccess[]> = {
     "activity-log",
     "reports",
     "settings",
+    "inventory",
+    "accounting",
+    "purchases",
   ],
   ADMIN: [
     "dashboard",
@@ -90,6 +96,9 @@ export const rolePageAccess: Record<Role, PageAccess[]> = {
     "activity-log",
     "reports",
     "settings",
+    "inventory",
+    "accounting",
+    "purchases",
   ],
   MANAGER: [
     "dashboard",

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -100,12 +101,10 @@ const PRIORITY_COLORS: Record<string, string> = {
   notice: "bg-gray-400",
 };
 
-export default function StaffTimelinePage({
-  params,
-}: {
-  params: Promise<{ staffId: string; restaurant: string }>;
-}) {
-  const resolvedParams = use(params);
+export default function StaffTimelinePage() {
+  const params = useParams();
+  const staffId = params.staffId as string;
+  const restaurant = params.restaurant as string;
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [staffMember, setStaffMember] = useState<StaffMember | null>(null);
@@ -129,7 +128,7 @@ export default function StaffTimelinePage({
       if (res.ok) {
         const data = await res.json();
         const staff = (data.staff || data || []).find(
-          (s: StaffMember) => s.id === resolvedParams.staffId
+          (s: StaffMember) => s.id === staffId
         );
         if (staff) {
           setStaffMember(staff);
@@ -146,7 +145,7 @@ export default function StaffTimelinePage({
       const params = new URLSearchParams({
         page: page.toString(),
         limit: "50",
-        staffId: resolvedParams.staffId,
+        staffId: staffId,
       });
 
       if (dateFrom) params.set("dateFrom", dateFrom);
@@ -168,13 +167,13 @@ export default function StaffTimelinePage({
 
   useEffect(() => {
     fetchStaffInfo();
-  }, [resolvedParams.staffId]);
+  }, [staffId]);
 
   useEffect(() => {
     if (dateFrom && dateTo) {
       fetchActivities();
     }
-  }, [resolvedParams.staffId, page, dateFrom, dateTo]);
+  }, [staffId, page, dateFrom, dateTo]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -218,7 +217,7 @@ export default function StaffTimelinePage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href={`/${resolvedParams.restaurant}/reports/activity`}>
+          <Link href={`/${restaurant}/reports/activity`}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back

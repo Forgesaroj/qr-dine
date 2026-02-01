@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { deductStockForOrderItems } from "@/lib/services/stock-deduction.service";
 
 /**
  * POST /api/orders/[id]/items/bulk-serve
@@ -32,6 +33,8 @@ export async function POST(
             id: true,
             status: true,
             isBarItem: true,
+            menuItemId: true,
+            quantity: true,
           },
         },
       },
@@ -106,6 +109,28 @@ export async function POST(
           foodPickedAt: now,
         },
       });
+    }
+
+    // Auto-deduct stock for served items
+    try {
+      const itemsForStockDeduction = order.items
+        .filter((item) => itemsToServe.includes(item.id))
+        .map((item) => ({
+          id: item.id,
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+        }));
+
+      if (itemsForStockDeduction.length > 0) {
+        await deductStockForOrderItems(
+          session.restaurantId,
+          itemsForStockDeduction,
+          session.id,
+          session.name || session.email
+        );
+      }
+    } catch (stockError) {
+      console.error("Stock deduction error (non-blocking):", stockError);
     }
 
     // Check if all items are now served

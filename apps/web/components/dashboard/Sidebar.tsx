@@ -32,6 +32,9 @@ import {
   Bell,
   Zap,
   ScrollText,
+  Warehouse,
+  Calculator,
+  ShoppingCart,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -58,6 +61,9 @@ const navigation: NavItem[] = [
   { name: "Tables", href: "/tables", icon: QrCode, page: "tables" },
   { name: "Reservations", href: "/reservations", icon: CalendarDays, page: "reservations" },
   { name: "Assistance", href: "/assistance", icon: Bell, page: "assistance" },
+  { name: "Inventory", href: "/inventory", icon: Warehouse, page: "inventory" },
+  { name: "Purchases", href: "/purchases", icon: ShoppingCart, page: "purchases" },
+  { name: "Accounting", href: "/accounting", icon: Calculator, page: "accounting" },
   { name: "Staff", href: "/staff", icon: Users, page: "staff" },
   { name: "Customers", href: "/customers", icon: Heart, page: "customers" },
   { name: "Promotions", href: "/promotions", icon: Tag, page: "promotions" },
